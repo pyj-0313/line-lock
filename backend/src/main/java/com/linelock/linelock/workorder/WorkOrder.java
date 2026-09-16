@@ -13,9 +13,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Getter
+@Setter 
 public class WorkOrder {
 
     @Id // 기본키(PK) 필드
