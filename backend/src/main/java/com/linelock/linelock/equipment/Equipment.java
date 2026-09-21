@@ -9,9 +9,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Version;
 import lombok.Getter;
+import lombok.Setter;
 
 @Entity // 이 클래스를 equipment 테이블과 매핑되는 JPA 엔티티로 등록
 @Getter // 모든 필드의 getter 메서드를 자동 생성 (Lombok)
+@Setter // 추가 - reserve 로직에서 equipment.setStatus() 호출을 위해 필요
 public class Equipment {
 
     @Id // 기본키(PK) 필드
@@ -24,6 +26,7 @@ public class Equipment {
     @Enumerated(EnumType.STRING) // enum을 숫자(0,1,2)가 아닌 문자열("RUNNING" 등)로 DB에 저장
     private EquipmentStatus status;
 
-    @Version // 낙관적 락용 필드. 수정될 때마다 값이 자동 증가하며, 동시 수정 충돌을 감지하는 데 쓰임
-    private Long version;
+    // @Version // 낙관적 락용 필드. 수정될 때마다 값이 자동 증가하며, 동시 수정 충돌을 감지하는 데 쓰임
+    // TODO: 낙관적 락 단계(다음 이슈)에서 다시 활성화 예정 - 지금은 "락 없는 상태"를 재현하기 위해 잠시 비활성화
+    // private Long version;
 }
