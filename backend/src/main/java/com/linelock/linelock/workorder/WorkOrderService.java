@@ -41,6 +41,11 @@ public class WorkOrderService {
             // [행동] 확인과 행동 사이에 다른 요청이 끼어들 수 있음 (check-then-act race condition)
             // 여러 요청이 동시에 여기 도달하면 전부 이 if를 통과해서, 같은 설비에 대해 WorkOrder가 여러 개 생성될 수 있음 -> 재현하려는 버그
             equipment.setStatus(EquipmentStatus.RUNNING);
+            // saveAndFlush로 WorkOrder 저장보다 먼저, 즉시 UPDATE를 내보냄.
+            // WorkOrder INSERT(FK 참조 확인용 공유 잠금)와 equipment UPDATE(배타 잠금)가 뒤섞이는 순서로 두면
+            // 동시 요청 시 서로의 잠금 해제를 기다리다 MySQL 데드락이 발생함(직접 재현해서 확인함) -> 순서를 명시적으로 고정
+            equipmentRepository.saveAndFlush(equipment);
+
             workOrder.setEquipment(equipment);
             workOrder.setRequester(userRepository.getReferenceById(workOrder.getRequester().getId()));
             workOrder.setStatus(WorkOrderStatus.CONFIRMED);
