@@ -35,9 +35,12 @@ public class SecurityConfig {
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         // /api/auth/** (회원가입, 로그인)는 로그인하기 전에 호출하는 API라서 인증을 요구하면 앞뒤가 안 맞음 -> 예외로 전부 허용
+        // /error는 컨트롤러/서비스에서 처리 안 된 예외가 터졌을 때 Spring Boot가 내부적으로 재전달(forward)하는 경로.
+        // 여기를 막아두면 인증된 요청 중간에 예외가 나도 이 재전달이 다시 보안 필터를 거치며 익명 취급되어 403으로 막혀버리고,
+        // 클라이언트는 원래 발생한 500 대신 엉뚱한 403을 받게 됨(비관적 락 테스트 중 실제로 겪은 문제) -> 항상 통과되도록 예외 처리
         // 그 외 나머지 모든 요청은 인증(로그인 후 토큰 보유)을 요구함
         http.authorizeHttpRequests(auth -> auth
-            .requestMatchers("/api/auth/**").permitAll()
+            .requestMatchers("/api/auth/**","/error").permitAll()
             .anyRequest().authenticated());
 
         // 우리가 만든 JwtAuthenticationFilter는 아직 Spring Security 체인에 등록되지 않은 상태.
