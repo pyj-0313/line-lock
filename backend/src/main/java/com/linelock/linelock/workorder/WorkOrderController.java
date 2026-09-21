@@ -28,4 +28,10 @@ public class WorkOrderController {
         return workOrderService.save(workOrder);
     }
 
+    // POST /api/workorders/{equipmentId}/reserve : 특정 설비를 예약 (URL의 설비 id + 본문의 나머지 예약 정보를 함께 받음)
+    @PostMapping("/{equipmentId}/reserve")
+    public WorkOrder reserve(@PathVariable Long equipmentId, @RequestBody WorkOrder workOrder) {
+        return workOrderService.reserve(equipmentId, workOrder);
+    }
+
 }

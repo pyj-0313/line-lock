@@ -9,9 +9,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Version;
 import lombok.Getter;
+import lombok.Setter;
 
 @Entity // 이 클래스를 equipment 테이블과 매핑되는 JPA 엔티티로 등록
 @Getter // 모든 필드의 getter 메서드를 자동 생성 (Lombok)
+@Setter // 추가 - reserve 로직에서 equipment.setStatus() 호출을 위해 필요
 public class Equipment {
 
     @Id // 기본키(PK) 필드
