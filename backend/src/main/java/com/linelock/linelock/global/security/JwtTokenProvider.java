@@ -1,21 +1,32 @@
 package com.linelock.linelock.global.security;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 import javax.crypto.SecretKey;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 
 @Component
 public class JwtTokenProvider {
     
-    // 서버가 재시작될 때마다 새로 생성됨 -> 재시작 이전에 발급된 토큰은 전부 서명 불일치로 무효화됨
-    // (운영에서는 이 키를 application.properties 등에 고정값으로 저장해두는 방식으로 개선 필요)
-    private final SecretKey key = Jwts.SIG.HS256.key().build();
+    // 토큰 서명/검증에 쓰는 비밀키(도장). 코드에서 랜덤 생성하지 않고 설정값(jwt.secret)에서 만든다.
+    // 랜덤 생성하면 서버마다 키가 달라서, 한 서버가 발급한 토큰을 다른 서버가 위조로 판단해 403으로 거부하고
+    // 서버를 재시작할 때마다 기존 토큰이 전부 무효화된다(서버 2대 실험에서 확인). 모든 서버가 같은 설정값을 쓰면 해결됨
+    private final SecretKey key;
+
+    // 같은 문자열이면 항상 같은 바이트 -> 같은 키가 만들어져서 서버 수/재시작과 무관하게 키가 일정함
+    // 키 길이는 32바이트(256비트) 이상이어야 하며, 짧으면 라이브러리가 예외를 던짐
+    // jwt.secret은 유출되면 누구나 토큰을 위조할 수 있으므로 레포에 커밋하지 않는 application.properties에만 둔다
+    public JwtTokenProvider(@Value("${jwt.secret}") String secret) {
+        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    }
 
     // 1. 토큰 발급
     public String generateToken(String loginId) {
