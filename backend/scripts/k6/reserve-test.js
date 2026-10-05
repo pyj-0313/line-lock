@@ -4,7 +4,8 @@
 // 실행 예시 (설비 1번, 방식은 no-lock, 동시 유저 10명):
 //   TOKEN="로그인해서 받은 토큰" MODE=no-lock EQUIPMENT_ID=1 VUS=10 k6 run backend/scripts/k6/reserve-test.js
 //
-// MODE는 no-lock / pessimistic / optimistic / redis 중 하나
+// MODE는 no-lock / memory-lock / pessimistic / optimistic / redis 중 하나
+// PORT는 요청을 보낼 서버 포트(기본 8080). 서버 2대 실험에선 PORT만 바꿔 k6를 2개 동시에 실행
 
 import http from 'k6/http';
 import { check } from 'k6';
@@ -13,6 +14,7 @@ const MODE = __ENV.MODE || 'no-lock';
 const TOKEN = __ENV.TOKEN;
 const EQUIPMENT_ID = __ENV.EQUIPMENT_ID || 1;
 const VUS = __ENV.VUS ? parseInt(__ENV.VUS) : 10;
+const PORT = __ENV.PORT || 8080;
 
 export const options = {
   scenarios: {
@@ -26,7 +28,7 @@ export const options = {
 };
 
 export default function () {
-  const url = `http://localhost:8080/api/demo/reserve/${MODE}/${EQUIPMENT_ID}`;
+  const url = `http://localhost:${PORT}/api/demo/reserve/${MODE}/${EQUIPMENT_ID}`;
   const payload = JSON.stringify({
     requester: { id: 3 },
     description: `k6 부하테스트 (${MODE})`,

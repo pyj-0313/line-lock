@@ -11,9 +11,10 @@ import com.linelock.linelock.workorder.WorkOrderService;
 
 import lombok.RequiredArgsConstructor;
 
-// 동시성 로드맵 4단계(락없음/비관적/낙관적/Redis)를 한 서버에서 동시에 비교하기 위한 데모 전용 컨트롤러.
+// 동시성 제어 5가지 방식(락없음/메모리락/비관적/낙관적/Redis)을 한 서버에서 동시에 비교하기 위한 데모 전용 컨트롤러.
 // 실제 서비스가 쓰는 프로덕션 엔드포인트는 /api/workorders/{id}/reserve(WorkOrderService, Redis 분산락) 이고,
-// 여기 4개 엔드포인트는 k6 부하테스트로 방식별 처리량/실패율/응답시간을 비교하려고 별도로 마련한 것임
+// 여기 5개 엔드포인트는 k6 부하테스트로 방식별 처리량/실패율/응답시간을 비교하려고 별도로 마련한 것임
+// (메모리락은 서버 1대에서는 정상이지만 서버가 여러 대면 서버마다 따로 통과시켜 깨진다는 걸 보여주는 용도)
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/demo/reserve")
@@ -23,6 +24,7 @@ public class ConcurrencyDemoController {
     private final OptimisticReserveService optimisticReserveService;
     private final PessimisticReserveService pessimisticReserveService;
     private final WorkOrderService workOrderService;
+    private final MemoryLockReserveService memoryLockReserveService;
 
     @PostMapping("/no-lock/{equipmentId}")
     public WorkOrder nolock(@PathVariable Long equipmentId, @RequestBody WorkOrder workOrder) {
@@ -38,9 +40,14 @@ public class ConcurrencyDemoController {
     public WorkOrder optimistic(@PathVariable Long equipmentId, @RequestBody WorkOrder workOrder) {
         return optimisticReserveService.reserve(equipmentId, workOrder);
     }
+
     @PostMapping("/redis/{equipmentId}")
     public WorkOrder workOrder(@PathVariable Long equipmentId, @RequestBody WorkOrder workOrder) {
         return workOrderService.reserve(equipmentId, workOrder);
     }
 
+    @PostMapping("/memory-lock/{equipmentId}")
+    public WorkOrder memoryLock(@PathVariable Long equipmentId, @RequestBody WorkOrder workOrder) {
+        return memoryLockReserveService.reserve(equipmentId, workOrder);
+    }
 }
