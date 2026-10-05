@@ -7,3 +7,8 @@ spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
 
 spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
+
+# JWT 서명키. 서버를 여러 대 띄울 때는 모든 서버가 같은 값을 써야 함 (서버마다 다르면 다른 서버의 토큰을 거부함)
+# 32자 이상의 랜덤 문자열을 쓸 것. 생성 예: openssl rand -base64 48
+# 실제 값은 커밋되지 않는 application.properties에만 넣고, 이 예제 파일에는 절대 실제 값을 적지 말 것
+jwt.secret=change-me-to-a-random-string-of-32-chars-or-more
