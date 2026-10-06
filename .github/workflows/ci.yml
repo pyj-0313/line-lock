@@ -46,3 +46,11 @@ jobs:
         run: ./gradlew test --no-daemon
         env:
           SPRING_DATASOURCE_PASSWORD: ci-password
+
+      - name: 테스트 리포트 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: backend/build/reports/tests/test
+          retention-days: 7          
