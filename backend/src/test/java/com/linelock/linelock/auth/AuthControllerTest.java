@@ -40,12 +40,14 @@ public class AuthControllerTest {
     @MockitoBean // SecurityConfig(JwtAuthenticationFilter)가 필요로 하는 의존성이라 같이 가짜로 준비해야 함
     private JwtTokenProvider jwtTokenProvider;
 
-    // signup/login은 SecurityConfig에서 permitAll()로 열려 있는 엔드포인트라 @WithMockUser 없이 테스트함
+    // signup/login은 SecurityConfig에서 permitAll()로 열려 있는 엔드포인트라 @WithMockUser 없이
+    // 테스트함
     // (인증 없이 호출해도 성공해야 하는 게 진짜 동작이므로, 로그인한 척을 하면 오히려 검증의 의미가 사라짐)
 
     @Test
     void signup_성공() throws Exception {
-        // given: 회원가입 요청 데이터 준비. signup()은 void라서 when(...).thenReturn(...)으로 약속할 값이 없고,
+        // given: 회원가입 요청 데이터 준비. signup()은 void라서 when(...).thenReturn(...)으로 약속할 값이
+        // 없고,
         // 가짜 객체는 void 메서드를 호출하면 기본적으로 아무것도 안 하므로 따로 설정하지 않아도 됨
         SignupRequest signupRequest = new SignupRequest("test", "1234", "테스트");
 
@@ -76,7 +78,8 @@ public class AuthControllerTest {
 
     @Test
     void signup_중복아이디면_409() throws Exception {
-        // given: signup()은 void라서 when(...).thenThrow(...)를 못 씀 -> doThrow(예외).when(가짜).메서드() 순서로 약속
+        // given: signup()은 void라서 when(...).thenThrow(...)를 못 씀 ->
+        // doThrow(예외).when(가짜).메서드() 순서로 약속
         // (when(...) 안에 넣을 "리턴값"이 없어서 순서가 거꾸로인 문법을 쓰는 것)
         SignupRequest signupRequest = new SignupRequest("test", "1234", "테스트");
         doThrow(new CustomException(ErrorCode.DUPLICATE_LOGIN_ID))
@@ -104,5 +107,17 @@ public class AuthControllerTest {
                 .content(new ObjectMapper().writeValueAsString(loginRequest)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("LOGIN_FAILED"));
+    }
+
+    @Test
+    void 깨진_JSON을_보내면_400() throws Exception {
+        // when & then: 본문이 JSON 형식이 아니면(여기선 일부러 닫는 중괄호가 없는 깨진 JSON) Spring이 읽지 못해
+        // HttpMessageNotReadableException이 터짐. 요청 쪽 문제이므로 400 + INVALID_REQUEST로 응답되는지 검증
+        // (서비스까지 가지 못하는 단계의 실패라 stubbing 없이 검증 가능)
+        mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{깨진 JSON"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
     }
 }

@@ -24,6 +24,8 @@ public enum ErrorCode {
     LOCK_ACQUISITION_FAILED(HttpStatus.CONFLICT, "다른 요청이 처리 중입니다. 잠시 후 다시 시도해주세요."),
     // 낙관적 락(@Version) 충돌: 같은 행을 동시에 수정하다 먼저 저장한 쪽에 밀린 경우. 다시 시도하면 대부분 풀리는 일시적 충돌
     CONCURRENT_UPDATE_CONFLICT(HttpStatus.CONFLICT, "동시에 수정되어 충돌했습니다. 다시 시도해주세요."),
+    RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 경로를 찾을 수 없습니다."),
+    INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다."),
     // 예상 못한 오류의 응답용. 실제 원인(스택트레이스)은 응답이 아니라 서버 로그에만 남기고, 밖에는 이 메시지만 내보냄
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
 

@@ -88,4 +88,25 @@ public class EquipmentControllerTest {
                 .andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"))
                 .andExpect(jsonPath("$.message").value("서버 오류가 발생했습니다."));
     }
+
+    @Test
+    @WithMockUser
+    void 존재하지않는_경로면_404() throws Exception {
+        // when & then: 어떤 컨트롤러에도 없는 경로를 요청하면 Spring이 NoResourceFoundException을 던짐
+        // 이걸 전용 핸들러가 받아 404 + RESOURCE_NOT_FOUND로 응답하는지 검증
+        // (전용 핸들러가 없으면 마지막 보루인 Exception 핸들러가 가로채 500이 되어버림 - 실제로 겪은 문제를 막는 테스트)
+        mockMvc.perform(get("/api/nothing-here"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+    }
+
+    @Test
+    @WithMockUser
+    void 설비id에_문자를_넣으면_400() throws Exception {
+        // when & then: Long을 기대하는 id 자리에 "abc"를 넣으면 서비스에 닿기도 전에 Spring이 타입 변환에 실패함
+        // 그래서 서비스를 stubbing(when)할 필요가 없음. 클라이언트 잘못이라 500이 아니라 400 + INVALID_REQUEST로 응답되는지 검증
+        mockMvc.perform(get("/api/equipments/abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
 }
