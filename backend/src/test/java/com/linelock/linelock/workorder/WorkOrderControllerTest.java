@@ -4,20 +4,24 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
-import org.springframework.http.MediaType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.linelock.linelock.equipment.Equipment;
 import com.linelock.linelock.global.config.SecurityConfig;
+import com.linelock.linelock.global.exception.CustomException;
+import com.linelock.linelock.global.exception.ErrorCode;
 import com.linelock.linelock.global.security.JwtTokenProvider;
 
 import tools.jackson.databind.ObjectMapper;
@@ -75,7 +79,8 @@ public class WorkOrderControllerTest {
     @WithMockUser
     void reserve_성공() throws Exception {
         // given: reserve(...)가 호출되면 이 WorkOrder를 리턴하도록 가정(stubbing)
-        // anyLong()/any(WorkOrder.class) : 경로변수(equipmentId)와 본문(workOrder) 둘 다 "어떤 값이든" 매칭
+        // anyLong()/any(WorkOrder.class) : 경로변수(equipmentId)와 본문(workOrder) 둘 다 "어떤
+        // 값이든" 매칭
         WorkOrder workOrder = new WorkOrder();
         when(workOrderService.reserve(anyLong(), any(WorkOrder.class))).thenReturn(workOrder);
 
@@ -88,7 +93,43 @@ public class WorkOrderControllerTest {
 
     @Test
     void getWorkOrderById_인증없으면_거부() throws Exception {
+        // when & then: @WithMockUser 없이(=익명) 요청하면 보안 필터가 컨트롤러에 닿기 전에 막아 403이 뜨는지 검증
+        // (GlobalExceptionHandler는 컨트롤러 이후에 터진 예외만 받으므로 이 403에는 영향이 없음)
         mockMvc.perform(get("/api/workorders/1"))
-        .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser
+    void reserve_이미_사용중이라면_409() throws Exception {
+        // given: reserve(...)가 호출되면 CustomException(EQUIPMENT_IN_USE)을 던지도록 약속
+        // (값을 리턴하는 메서드라 when(...).thenThrow(...)를 쓸 수 있음)
+        WorkOrder workOrder = new WorkOrder();
+        when(workOrderService.reserve(anyLong(), any(WorkOrder.class)))
+                .thenThrow(new CustomException(ErrorCode.EQUIPMENT_IN_USE));
+
+        // when & then: 요청 형식은 올바른데 설비의 현재 상태와 충돌한 경우라 400이 아니라 409(Conflict)로 응답되는지 검증
+        mockMvc.perform(post("/api/workorders/1/reserve")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(new ObjectMapper().writeValueAsString(workOrder)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("EQUIPMENT_IN_USE"));
+    }
+
+    @Test
+    @WithMockUser
+    void reserve_동시수정_충돌이면_409() throws Exception {
+        // given: 낙관적 락(@Version) 충돌 예외를 던지도록 약속. 이 예외는 우리가 만든 CustomException이 아니라
+        // Spring이 던지는 것이라, 실제 충돌 때 Hibernate가 채워주는 정보(엔티티 클래스, id)를 흉내 내서 생성함
+        WorkOrder workOrder = new WorkOrder();
+        when(workOrderService.reserve(anyLong(), any(WorkOrder.class)))
+                .thenThrow(new ObjectOptimisticLockingFailureException(Equipment.class, 1L));
+
+        // when & then: CustomException용이 아닌 별도 핸들러가 받아서 409 + CONCURRENT_UPDATE_CONFLICT로 응답하는지 검증
+        mockMvc.perform(post("/api/workorders/1/reserve")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(new ObjectMapper().writeValueAsString(workOrder)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONCURRENT_UPDATE_CONFLICT"));
     }
 }

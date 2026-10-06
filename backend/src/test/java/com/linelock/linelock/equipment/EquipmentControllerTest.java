@@ -2,24 +2,26 @@ package com.linelock.linelock.equipment;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.context.annotation.Import;
 
 import com.linelock.linelock.global.config.SecurityConfig;
+import com.linelock.linelock.global.exception.CustomException;
+import com.linelock.linelock.global.exception.ErrorCode;
 import com.linelock.linelock.global.security.JwtTokenProvider;
 
 @WebMvcTest(EquipmentController.class) // Spring Boot 전체가 아니라 웹 계층(Controller + MVC 관련)만 가볍게 띄움
 @Import(SecurityConfig.class) // 기본적으로는 로딩 안 되는 우리 진짜 SecurityConfig를 이 테스트에 끌어옴
-                               // (안 그러면 Spring Boot의 기본 보안(HTTP Basic, 401)이 대신 적용되어버림 - 직접 겪은 문제)
+                              // (안 그러면 Spring Boot의 기본 보안(HTTP Basic, 401)이 대신 적용되어버림 - 직접 겪은 문제)
 public class EquipmentControllerTest {
 
     @Autowired // 실제 HTTP 요청을 흉내 내는 도구를 Spring 컨테이너에서 주입받음
@@ -49,9 +51,41 @@ public class EquipmentControllerTest {
     @Test
     void getEquipmentById_인증없으면_거부() throws Exception {
         // when & then: @WithMockUser 없이(=익명 사용자로) 요청하면, 진짜 SecurityConfig의
-        // anyRequest().authenticated() 규칙에 걸려 403이 뜨는지 검증 (@Import(SecurityConfig.class) 덕분에 가능)
+        // anyRequest().authenticated() 규칙에 걸려 403이 뜨는지 검증
+        // (@Import(SecurityConfig.class) 덕분에 가능)
         mockMvc.perform(get("/api/equipments/1"))
                 .andDo(print())
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser
+    void getEquipmentById_없으면_404() throws Exception {
+        // given: findById(999)가 호출되면 CustomException(EQUIPMENT_NOT_FOUND)을 던지도록 약속
+        // thenThrow : "이 값을 리턴해라"(thenReturn)와 달리 "이 예외를 던져라"를 약속하는 문법
+        when(equipmentService.findById(999L))
+                .thenThrow(new CustomException(ErrorCode.EQUIPMENT_NOT_FOUND));
+
+        // when & then: 서비스가 던진 예외를 GlobalExceptionHandler가 받아서 404 + 응답 JSON으로 바꿔주는지 검증
+        // status()는 응답 상태코드를, jsonPath()는 응답 본문(JSON)의 필드값을 확인함
+        mockMvc.perform(get("/api/equipments/999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("EQUIPMENT_NOT_FOUND"));
+    }
+
+    @Test
+    @WithMockUser
+    void 예상못한_예외면_500이고_내부정보는_숨긴다() throws Exception {
+        // given: 서비스에서 예상 못한 예외(버그)가 터진 상황. 예외 메시지에 내부 정보가 들어 있다고 가정
+        // (password 문자열은 테스트용 가짜 값. 진짜 비밀이 아니라 "새어 나가는지" 확인하려고 넣은 미끼)
+        when(equipmentService.findById(1L))
+                .thenThrow(new RuntimeException("DB 접속 정보 password=secret1234"));
+
+        // when & then: 마지막 보루인 Exception 핸들러가 받아서 500 + 정리된 메시지로 응답하는지 검증
+        // message가 예외의 원래 메시지가 아니라 고정 문구여야 "내부 정보는 응답에 노출하지 않고 로그에만 남긴다"가 지켜진 것
+        mockMvc.perform(get("/api/equipments/1"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"))
+                .andExpect(jsonPath("$.message").value("서버 오류가 발생했습니다."));
     }
 }
