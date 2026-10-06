@@ -24,7 +24,7 @@ public class MaintenanceNoticeDemoService {
     // 어느 서버가 실행했는지 로그로 구분하려고 이 서버의 포트를 읽어옴 (--server.port로 덮어쓴 값도 반영됨)
     // ":8080"은 설정에 server.port가 없을 때 쓸 기본값. 없으면 포트를 명령줄로 넘기지 않고 실행하는 경우
     // (일반 bootRun, 테스트의 contextLoads)에 값을 못 찾아서 서버 기동이 실패함
-    @Value("${server.port:8080}")
+    @Value("${server.port}")
     private String port;
 
     // 락 없이 실행: 서버 2대에 동시에 요청하면 둘 다 실행되어 알림이 중복 발송되는 문제를 재현하는 버전
