@@ -19,6 +19,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.linelock.linelock.auth.dto.LoginRequest;
 import com.linelock.linelock.auth.dto.LoginResponse;
 import com.linelock.linelock.auth.dto.SignupRequest;
+import com.linelock.linelock.global.exception.CustomException;
+import com.linelock.linelock.global.exception.ErrorCode;
 import com.linelock.linelock.global.security.JwtTokenProvider;
 import com.linelock.linelock.user.User;
 import com.linelock.linelock.user.UserRepository;
@@ -58,8 +60,10 @@ public class AuthServiceTest {
         SignupRequest request = new SignupRequest("test", "1234", "테스트");
         when(userRepository.findByLoginId(anyString())).thenReturn(Optional.of(new User()));
 
-        // when & then: signup() 실행 시 중복 체크 로직이 IllegalArgumentException을 던지는지 한 번에 검증
-        assertThrows(IllegalArgumentException.class, () -> authService.signup(request));
+        // when & then: signup() 실행 시 CustomException이 터지고, 그 안의 ErrorCode가 중복 아이디인지 검증
+        // (예외 타입만 보면 "다른 이유로 터진 예외"도 통과하므로, ErrorCode까지 확인해야 올바른 이유로 실패했다고 말할 수 있음)
+        CustomException e = assertThrows(CustomException.class, () -> authService.signup(request));
+        assertThat(e.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_LOGIN_ID);
     }
 
     @Test
@@ -93,7 +97,9 @@ public class AuthServiceTest {
         when(userRepository.findByLoginId(anyString())).thenReturn(Optional.of(user));
         when(passwordEncoder.matches(anyString(), anyString())).thenReturn(false); // "비밀번호 불일치"를 가정
 
-        // when & then: login() 실행 시 비밀번호 검증 로직이 IllegalArgumentException을 던지는지 한 번에 검증
-        assertThrows(IllegalArgumentException.class, () -> authService.login(reuqest));
+        // when & then: login() 실행 시 CustomException이 터지고, 그 안의 ErrorCode가 로그인 실패인지 검증
+        // (없는 아이디일 때와 같은 LOGIN_FAILED를 쓰므로, 응답만 봐서는 어느 쪽이 틀렸는지 구분되지 않음)
+        CustomException e = assertThrows(CustomException.class, () -> authService.login(reuqest));
+        assertThat(e.getErrorCode()).isEqualTo(ErrorCode.LOGIN_FAILED);
     }
 }

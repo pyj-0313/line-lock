@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -18,6 +17,8 @@ import org.redisson.api.RedissonClient;
 
 import com.linelock.linelock.equipment.Equipment;
 import com.linelock.linelock.equipment.EquipmentRepository;
+import com.linelock.linelock.global.exception.CustomException;
+import com.linelock.linelock.global.exception.ErrorCode;
 import com.linelock.linelock.user.User;
 import com.linelock.linelock.user.UserRepository;
 
@@ -58,8 +59,9 @@ public class WorkOrderServiceTest {
         // given: findById(...)가 호출되면 "조회 결과 없음"을 가정(stubbing)
         when(workOrderRepository.findById(anyLong())).thenReturn(Optional.empty());
 
-        // when & then: findById() 내부의 orElseThrow()가 NoSuchElementException을 던지는지 검증
-        assertThrows(NoSuchElementException.class, () -> workOrderService.findById(1L));
+        // when & then: findById() 내부의 orElseThrow가 CustomException(WORK_ORDER_NOT_FOUND)을 던지는지 검증
+        CustomException e = assertThrows(CustomException.class, () -> workOrderService.findById(1L));
+        assertThat(e.getErrorCode()).isEqualTo(ErrorCode.WORK_ORDER_NOT_FOUND);
     }
 
     @Test

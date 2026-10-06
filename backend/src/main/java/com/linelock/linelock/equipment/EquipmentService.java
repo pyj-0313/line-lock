@@ -1,6 +1,10 @@
 package com.linelock.linelock.equipment;
 
 import org.springframework.stereotype.Service;
+
+import com.linelock.linelock.global.exception.CustomException;
+import com.linelock.linelock.global.exception.ErrorCode;
+
 import lombok.RequiredArgsConstructor;
 
 @Service // 비즈니스 로직을 담당하는 서비스 컴포넌트로 Spring에 등록
@@ -10,7 +14,7 @@ public class EquipmentService {
     private final EquipmentRepository equipmentRepository; // EquipmentRepository를 주입받음
 
     public Equipment findById(Long id) { // Equipment 엔티티를 id로 조회하는 메서드
-        return equipmentRepository.findById(id).orElseThrow(); // Optional이라 없으면 예외 발생시킴
+        return equipmentRepository.findById(id).orElseThrow(() -> new CustomException(ErrorCode.EQUIPMENT_NOT_FOUND)); // 없으면 CustomException(EQUIPMENT_NOT_FOUND) -> 핸들러가 404로 응답
     }
 
     public Equipment save(Equipment equipment) { // Equipment 엔티티를 저장하는 메서드
