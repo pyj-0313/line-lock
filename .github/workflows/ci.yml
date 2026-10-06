@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mysql:
+        image: mysql:9
+        env:
+          MYSQL_ROOT_PASSWORD: ci-password
+          MYSQL_DATABASE: linelock
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pci-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 21 설치
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: 설정 파일 생성
+        run: cp src/main/resources/application.properties.example src/main/resources/application.properties
+
+      - name: 테스트 실행
+        run: ./gradlew test --no-daemon
+        env:
+          SPRING_DATASOURCE_PASSWORD: ci-password
