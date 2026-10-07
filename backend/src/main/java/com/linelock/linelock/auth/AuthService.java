@@ -53,7 +53,8 @@ public class AuthService {
         }
 
         // 아이디/비밀번호 검증이 끝난 시점에만 토큰을 발급 -> 이후 요청은 이 토큰만으로 신원 증명
-        String token = jwtTokenProvider.generateToken(user.getLoginId());
+        // role도 함께 담음: 필터가 토큰의 role로 권한(ROLE_USER/ROLE_ADMIN)을 만들어 역할 기반 접근 제어에 쓰기 위함
+        String token = jwtTokenProvider.generateToken(user.getLoginId(), user.getRole());
 
         return new LoginResponse(token);
     }
