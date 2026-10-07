@@ -1,8 +1,11 @@
 package com.linelock.linelock.global.exception;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -27,8 +30,10 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
-    // 클라이언트가 잘못 보낸 요청: 숫자 자리에 문자를 넣었거나(MethodArgumentTypeMismatchException, 예: /equipments/abc),
-    // 본문 JSON이 깨졌을 때(HttpMessageNotReadableException). 서버 버그가 아니라 요청 쪽 문제라 500이 아니라 400
+    // 클라이언트가 잘못 보낸 요청: 숫자 자리에 문자를 넣었거나(MethodArgumentTypeMismatchException, 예:
+    // /equipments/abc),
+    // 본문 JSON이 깨졌을 때(HttpMessageNotReadableException). 서버 버그가 아니라 요청 쪽 문제라 500이 아니라
+    // 400
     // 응답이 같아서 핸들러 하나가 두 예외를 같이 받음. 서로 다른 두 타입을 받으려면 공통 부모인 Exception으로 파라미터를 선언해야 함
     // 클라이언트 잘못은 서버 장애가 아니므로 error가 아니라 warn으로 기록
     @ExceptionHandler({ MethodArgumentTypeMismatchException.class, HttpMessageNotReadableException.class })
@@ -66,5 +71,21 @@ public class GlobalExceptionHandler {
         log.error("예상하지 못한 서버 오류", e);
         return ResponseEntity.status(ErrorCode.INTERNAL_SERVER_ERROR.getStatus())
                 .body(ErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR));
+    }
+
+    // @Valid 검증에 실패하면 Spring이 던지는 예외. 이 핸들러가 없으면 마지막 보루(Exception)가 가로채 500이 되어버림
+    // (@NotBlank 등을 붙이고 @Valid까지 넣어도 이 핸들러가 없으면 400이 아니라 500으로 나감 - 직접 확인함)
+    // 클라이언트가 잘못 보낸 요청이라 400이고, 프론트가 입력창별로 안내할 수 있게 틀린 필드와 사유를 fieldErrors에 담음
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException e) {
+        // getFieldErrors()(복수)는 틀린 필드 전체 목록, getFieldError()(단수)는 첫 번째 하나뿐이라 헷갈리지 않게 주의
+        // 한 요청에서 여러 필드가 동시에 틀릴 수 있어서 목록으로 변환 (fe -> ... 는 각 오류를 FieldErrorResponse로 바꾸는 람다)
+        List<FieldErrorResponse> fieldErrors = e.getBindingResult().getFieldErrors().stream()
+                .map(fe -> new FieldErrorResponse(fe.getField(), fe.getDefaultMessage()))
+                .toList();
+
+        log.warn("입력값 검증 실패: {}", fieldErrors);
+        return ResponseEntity.status(ErrorCode.INVALID_REQUEST.getStatus())
+                .body(ErrorResponse.of(ErrorCode.INVALID_REQUEST, fieldErrors));
     }
 }

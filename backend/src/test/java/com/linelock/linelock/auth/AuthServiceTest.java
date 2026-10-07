@@ -43,7 +43,9 @@ public class AuthServiceTest {
     @Test
     void signup_성공() {
         // given: 회원가입 요청 데이터 준비 + 가짜 객체들의 동작을 미리 약속(stubbing)
-        SignupRequest request = new SignupRequest("test", "1234", "테스트");
+        // 비밀번호를 8자 이상으로 둔 이유: 서비스 단위 테스트는 @Valid가 동작하지 않아 실제로는 상관없지만,
+        // 컨트롤러 테스트와 같은 "규칙을 만족하는 정상 요청"이라는 의미를 맞추려는 것
+        SignupRequest request = new SignupRequest("test", "12345678", "테스트");
         when(userRepository.findByLoginId(anyString())).thenReturn(Optional.empty()); // "같은 아이디 없음"을 가정
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword"); // 암호화 결과를 가정
 
@@ -57,7 +59,7 @@ public class AuthServiceTest {
     @Test
     void signup_중복아이디_예외() {
         // given: 회원가입 요청 준비 + "이미 같은 아이디의 User가 존재한다"고 가정(stubbing)
-        SignupRequest request = new SignupRequest("test", "1234", "테스트");
+        SignupRequest request = new SignupRequest("test", "12345678", "테스트");
         when(userRepository.findByLoginId(anyString())).thenReturn(Optional.of(new User()));
 
         // when & then: signup() 실행 시 CustomException이 터지고, 그 안의 ErrorCode가 중복 아이디인지 검증
