@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController // HTTP 요청을 받아 처리하고 반환값을 JSON으로 자동 변환해 응답하는 컨트롤러로 등록
@@ -31,10 +32,12 @@ public class WorkOrderController {
     // 요청자를 본문이 아니라 토큰에서 꺼내므로 다른 사람 이름으로 예약하는 위조가 불가능하고, 상태(CONFIRMED)는 서버가 정함
     // Principal: 이 파라미터를 선언해두면 Spring MVC가 "지금 로그인한 사용자"를 넣어줌. getName()이 로그인 아이디
     // (@AuthenticationPrincipal String 대신 Principal을 쓴 이유: 운영과 테스트(@WithMockUser)의 principal 타입이 달라도 getName()은 같게 동작)
+    // @Valid: ReserveRequest의 규칙(내용 필수, 시간 필수, 종료>시작)을 컨트롤러 진입 전에 검사. 위반하면 400 + 필드별 사유로 응답됨
+    // (이게 없으면 규칙이 있어도 검사가 안 돼서 잘못된 값이 락 로직까지 들어감)
     // 참고: 예전에 있던 POST /api/workorders(엔티티를 그대로 저장)는 status를 클라이언트가 정해 락을 우회할 수 있어서 삭제함 -> 예약은 이 경로 하나뿐
     @PostMapping("/{equipmentId}/reserve")
     public WorkOrderResponse reserve(@PathVariable Long equipmentId,
-            @RequestBody ReserveRequest request,
+            @Valid @RequestBody ReserveRequest request,
             Principal principal) {
         return WorkOrderResponse.from(workOrderService.reserve(equipmentId, request, principal.getName()));
     }

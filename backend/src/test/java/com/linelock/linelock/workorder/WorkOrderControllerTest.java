@@ -4,12 +4,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import java.time.LocalDateTime;
 
@@ -112,9 +114,11 @@ public class WorkOrderControllerTest {
         @Test
         @WithMockUser
         void reserve_이미_사용중이라면_409() throws Exception {
-                // given: 예약 요청(ReserveRequest) 준비 + reserve(...)가 호출되면 CustomException(EQUIPMENT_IN_USE)을 던지도록 약속
+                // given: 예약 요청(ReserveRequest) 준비 + reserve(...)가 호출되면
+                // CustomException(EQUIPMENT_IN_USE)을 던지도록 약속
                 // 컨트롤러는 이제 새 메서드 reserve(설비 id, 요청 DTO, 로그인 아이디)를 부르므로 인자 3개를 모두 매처로 맞춰야 함
-                // (옛 시그니처 reserve(Long, WorkOrder)로 약속하면 다른 메서드라서 약속이 안 먹고 NullPointerException -> 500이 됨)
+                // (옛 시그니처 reserve(Long, WorkOrder)로 약속하면 다른 메서드라서 약속이 안 먹고 NullPointerException
+                // -> 500이 됨)
                 // (값을 리턴하는 메서드라 when(...).thenThrow(...)를 쓸 수 있음)
                 ReserveRequest request = new ReserveRequest("점검 작업",
                                 LocalDateTime.of(2026, 10, 10, 10, 0), LocalDateTime.of(2026, 10, 10, 12, 0));
@@ -135,7 +139,8 @@ public class WorkOrderControllerTest {
         void reserve_동시수정_충돌이면_409() throws Exception {
                 // given: 예약 요청(ReserveRequest) 준비 + 낙관적 락(@Version) 충돌 예외를 던지도록 약속
                 // 이 예외는 우리가 만든 CustomException이 아니라 Spring이 던지는 것이라, 실제 충돌 때 Hibernate가 채워주는
-                // 정보(엔티티 클래스, id)를 흉내 내서 생성함. 인자 3개(설비 id, 요청 DTO, 로그인 아이디)를 매처로 맞추는 이유는 위 테스트와 같음
+                // 정보(엔티티 클래스, id)를 흉내 내서 생성함. 인자 3개(설비 id, 요청 DTO, 로그인 아이디)를 매처로 맞추는 이유는 위 테스트와
+                // 같음
                 ReserveRequest request = new ReserveRequest("점검 작업",
                                 LocalDateTime.of(2026, 10, 10, 10, 0), LocalDateTime.of(2026, 10, 10, 12, 0));
                 when(workOrderService.reserve(anyLong(), any(ReserveRequest.class), anyString()))
@@ -169,7 +174,8 @@ public class WorkOrderControllerTest {
                 ReserveRequest request = new ReserveRequest("점검 작업", LocalDateTime.of(2026, 10, 10, 10, 0),
                                 LocalDateTime.of(2026, 10, 10, 12, 0));
 
-                // when: @WithMockUser(username = "demotest")로 로그인한 사용자로서 예약 요청 (요청 본문에는 요청자 정보가 없음)
+                // when: @WithMockUser(username = "demotest")로 로그인한 사용자로서 예약 요청 (요청 본문에는 요청자 정보가
+                // 없음)
                 mockMvc.perform(post("/api/workorders/1/reserve")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(new ObjectMapper().writeValueAsString(request)))
@@ -178,5 +184,68 @@ public class WorkOrderControllerTest {
                 // then: 컨트롤러가 서비스에 넘긴 로그인 아이디가 정확히 "demotest"인지 검증
                 // eq(): "정확히 이 값". 인자 중 하나라도 매처(any, eq)를 쓰면 나머지도 전부 매처로 써야 하므로 1L도 eq(1L)로 감쌈
                 verify(workOrderService).reserve(eq(1L), any(ReserveRequest.class), eq("demotest"));
+        }
+
+        @Test
+        @WithMockUser
+        void reserve_종료가_시작보다_앞이면_400() throws Exception {
+                // 이 테스트의 목적: 두 필드의 관계 규칙(@AssertTrue isEndAfterStart)이 실제로 검사되는지 확인
+                // (@WithMockUser: 검증은 컨트롤러 진입 직전 단계라, 로그인한 상태여야 보안 필터를 통과해 거기까지 도달함)
+                // given: 내용은 정상이고 시간만 거꾸로(시작 12시, 종료 10시). 서비스는 stubbing하지 않음 - 검증에서 걸려 서비스까지 가지 않기 때문
+                ReserveRequest request = new ReserveRequest("점검 작업", LocalDateTime.of(2026, 10, 10, 12, 0),
+                                LocalDateTime.of(2026, 10, 10, 10, 0));
+
+                // when & then: 400 + INVALID_REQUEST이고, 틀린 건 하나뿐이라 필드 이름이 메서드 이름에서 나온 endAfterStart로 담김
+                mockMvc.perform(post("/api/workorders/1/reserve")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(new ObjectMapper().writeValueAsString(request)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                                .andExpect(jsonPath("$.fieldErrors.length()").value(1))
+                                .andExpect(jsonPath("$.fieldErrors[0].field").value("endAfterStart"))
+                                .andExpect(jsonPath("$.fieldErrors[0].message").value("종료 시간은 시작 시간보다 뒤여야 합니다."));
+
+                // 잘못된 요청은 서비스(락 로직)까지 가면 안 됨: 400이 나왔다는 것만으로는 이를 증명 못 해서 호출이 한 번도 없었는지 확인
+                // (never(): 한 번도 호출되지 않았음을 검증. 인자 3개를 모두 매처로 맞춰야 하는 규칙은 동일)
+                verify(workOrderService, never()).reserve(anyLong(), any(ReserveRequest.class), anyString());
+        }
+
+        @Test
+        @WithMockUser
+        void reserve_시작과_종료가_같으면_400() throws Exception {
+                // 같은 시각(길이 0의 예약)도 거부해야 함: isAfter는 "엄격히 뒤"일 때만 true라서 걸림
+                ReserveRequest request = new ReserveRequest("점검 작업", LocalDateTime.of(2026, 10, 10, 10, 0),
+                                LocalDateTime.of(2026, 10, 10, 10, 0));
+
+                mockMvc.perform(post("/api/workorders/1/reserve")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(new ObjectMapper().writeValueAsString(request)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.fieldErrors.length()").value(1))
+                                .andExpect(jsonPath("$.fieldErrors[0].field").value("endAfterStart"));
+                verify(workOrderService, never()).reserve(anyLong(), any(ReserveRequest.class), anyString());
+        }
+
+        @Test
+        @WithMockUser
+        void reserve_내용이_비고_시간이_없으면_400() throws Exception {
+                // 내용 빈 값 + 시작/종료 null: 각 필드 규칙(@NotBlank, @NotNull)이 자기 오류를 하나씩 내야 함
+                ReserveRequest request = new ReserveRequest("", null, null);
+
+                // when & then: 오류는 정확히 3개이고 endAfterStart는 없어야 함 - 시간이 null이면 isEndAfterStart()가 true를 돌려주고
+                // 그 경우는 @NotNull이 따로 잡기 때문 (같은 원인으로 오류가 두 번 나지 않는다는 설계를 이 테스트가 고정함)
+                // 오류 목록의 순서는 보장되지 않아서 containsInAnyOrder로 "순서 무관하게 이 값들"만 확인
+                // (메시지 문자열은 ReserveRequest의 message와 한 글자도 다르면 안 됨)
+                mockMvc.perform(post("/api/workorders/1/reserve")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(new ObjectMapper().writeValueAsString(request)))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.fieldErrors.length()").value(3))
+                                .andExpect(jsonPath("$.fieldErrors[*].field",
+                                                containsInAnyOrder("description", "startTime", "endTime")))
+                                .andExpect(jsonPath("$.fieldErrors[*].message",
+                                                containsInAnyOrder("작업 내용을 입력해주세요.", "시작 시간을 입력해주세요.",
+                                                                "종료 시간을 입력해주세요.")));
+                verify(workOrderService, never()).reserve(anyLong(), any(ReserveRequest.class), anyString());
         }
 }

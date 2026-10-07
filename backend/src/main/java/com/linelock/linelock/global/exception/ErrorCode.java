@@ -25,6 +25,8 @@ public enum ErrorCode {
     // 낙관적 락(@Version) 충돌: 같은 행을 동시에 수정하다 먼저 저장한 쪽에 밀린 경우. 다시 시도하면 대부분 풀리는 일시적 충돌
     CONCURRENT_UPDATE_CONFLICT(HttpStatus.CONFLICT, "동시에 수정되어 충돌했습니다. 다시 시도해주세요."),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 경로를 찾을 수 없습니다."),
+    // 클라이언트가 잘못 보낸 요청 전반: 깨진 JSON, 타입 불일치(/equipments/abc), 입력값 검증 실패(@Valid)
+    // 검증 실패일 때는 응답에 fieldErrors(필드별 사유)가 함께 내려가고, 그 외에는 이 공통 메시지만 나감
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다."),
     // 토큰은 유효한데 해당 사용자가 DB에 없는 경우처럼 "요청자의 신원을 인정할 수 없다"는 상황, 404가 아니라 401
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증 정보가 유효하지 않습니다."),
