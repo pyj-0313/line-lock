@@ -20,8 +20,9 @@ public class AuthController {
     private final AuthService authService;
 
     // 가입 성공 후 클라이언트가 추가로 필요한 데이터가 없어서 void
+    // @Valid: SignupRequest의 규칙(필수 입력, 비밀번호 8자 이상)을 컨트롤러 진입 전에 검사. 위반하면 400 + 필드별 사유로 응답됨
     @PostMapping("/signup")
-    public void signup(@RequestBody SignupRequest request) {
+    public void signup(@Valid @RequestBody SignupRequest request) {
         authService.signup(request);
     }
 
