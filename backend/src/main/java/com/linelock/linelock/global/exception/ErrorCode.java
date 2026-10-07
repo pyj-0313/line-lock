@@ -26,6 +26,8 @@ public enum ErrorCode {
     CONCURRENT_UPDATE_CONFLICT(HttpStatus.CONFLICT, "동시에 수정되어 충돌했습니다. 다시 시도해주세요."),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 경로를 찾을 수 없습니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다."),
+    // 토큰은 유효한데 해당 사용자가 DB에 없는 경우처럼 "요청자의 신원을 인정할 수 없다"는 상황, 404가 아니라 401
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증 정보가 유효하지 않습니다."),
     // 예상 못한 오류의 응답용. 실제 원인(스택트레이스)은 응답이 아니라 서버 로그에만 남기고, 밖에는 이 메시지만 내보냄
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
 

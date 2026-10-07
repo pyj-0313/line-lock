@@ -1,5 +1,7 @@
 package com.linelock.linelock.workorder;
 
+import java.security.Principal;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,21 +19,24 @@ public class WorkOrderController {
     private final WorkOrderService workOrderService;
 
     // GET /api/workorders/{id} : 특정 WorkOrder 조회
+    // 엔티티가 아니라 WorkOrderResponse(DTO)로 응답 -> 연결된 Equipment(version)/User(password)의 내부 필드가 밖으로 나가지 않음
+    // 엔티티 -> DTO 변환은 서비스가 아니라 컨트롤러에서 함 ("밖으로 내보낼 모양"은 API 입구의 몫)
     @GetMapping("/{id}")
-    public WorkOrder getWorkOrderById(@PathVariable Long id) {
-        return workOrderService.findById(id);
+    public WorkOrderResponse getWorkOrderById(@PathVariable Long id) {
+        return WorkOrderResponse.from(workOrderService.findById(id));
     }
 
-    // POST /api/workorders : 새로운 WorkOrder 생성 (요청 본문의 JSON을 WorkOrder 객체로 변환해서 받음)
-    @PostMapping
-    public WorkOrder createWorkOrder(@RequestBody WorkOrder workOrder) {
-        return workOrderService.save(workOrder);
-    }
-
-    // POST /api/workorders/{equipmentId}/reserve : 특정 설비를 예약 (URL의 설비 id + 본문의 나머지 예약 정보를 함께 받음)
+    // POST /api/workorders/{equipmentId}/reserve : 특정 설비를 예약
+    // 값마다 "누가 정하는가"를 나눔: 설비는 URL 경로, 내용/시간은 요청 본문(ReserveRequest), 요청자는 로그인한 사용자(Principal)
+    // 요청자를 본문이 아니라 토큰에서 꺼내므로 다른 사람 이름으로 예약하는 위조가 불가능하고, 상태(CONFIRMED)는 서버가 정함
+    // Principal: 이 파라미터를 선언해두면 Spring MVC가 "지금 로그인한 사용자"를 넣어줌. getName()이 로그인 아이디
+    // (@AuthenticationPrincipal String 대신 Principal을 쓴 이유: 운영과 테스트(@WithMockUser)의 principal 타입이 달라도 getName()은 같게 동작)
+    // 참고: 예전에 있던 POST /api/workorders(엔티티를 그대로 저장)는 status를 클라이언트가 정해 락을 우회할 수 있어서 삭제함 -> 예약은 이 경로 하나뿐
     @PostMapping("/{equipmentId}/reserve")
-    public WorkOrder reserve(@PathVariable Long equipmentId, @RequestBody WorkOrder workOrder) {
-        return workOrderService.reserve(equipmentId, workOrder);
+    public WorkOrderResponse reserve(@PathVariable Long equipmentId,
+            @RequestBody ReserveRequest request,
+            Principal principal) {
+        return WorkOrderResponse.from(workOrderService.reserve(equipmentId, request, principal.getName()));
     }
 
 }
