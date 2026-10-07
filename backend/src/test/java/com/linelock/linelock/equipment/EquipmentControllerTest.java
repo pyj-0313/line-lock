@@ -36,16 +36,20 @@ public class EquipmentControllerTest {
     @Test
     @WithMockUser // "로그인된 사용자인 척" 해주는 어노테이션 - 없으면 Security에 막혀 Controller 로직 자체를 테스트 못 함
     void getEquipmentById_성공() throws Exception {
-        // given
+        // given: 조회될 Equipment 준비. version(낙관적 락용 내부 필드)을 일부러 채워둠
+        // -> 엔티티에는 값이 있는데도 응답에서 빠지는지를 검증하려는 것 (null이면 유출돼도 티가 안 남)
         Equipment equipment = new Equipment();
         equipment.setId(1L);
         equipment.setEquipmentNumber("EQ-001");
+        equipment.setVersion(5L);
         when(equipmentService.findById(1L)).thenReturn(equipment);
 
         // when & then: GET 요청을 보내고, 상태코드와 응답 JSON의 필드값을 검증
+        // 응답은 엔티티가 아니라 EquipmentResponse(DTO)라서, 허용한 필드만 있고 내부 필드(version)는 응답에 아예 없어야 함
         mockMvc.perform(get("/api/equipments/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.equipmentNumber").value("EQ-001"));
+                .andExpect(jsonPath("$.equipmentNumber").value("EQ-001"))
+                .andExpect(jsonPath("$.version").doesNotExist());
     }
 
     @Test
