@@ -15,7 +15,8 @@ import jakarta.validation.constraints.Size;
 // 입력값 규칙은 컨트롤러 파라미터의 @Valid가 있어야 실제로 검사됨 (규칙만 선언하고 @Valid를 빼먹으면 아무 검사도 안 일어남)
 public record ReserveRequest(
 
-        // 255자 제한: DB 컬럼 길이(기본 255)를 넘는 입력이 DB 에러(500)로 터지기 전에 미리 400으로 막으려는 것
+        // 255자 제한: DB 컬럼 길이가 아니라 제품 차원의 상한 (WorkOrder.description 컬럼은 TEXT라 DB가 255자를 강제하지 않음)
+        // 상한이 없으면 수 MB짜리 본문도 저장 시도까지 가므로, 설명 필드에는 현실적인 길이 제한을 둠
         @NotBlank(message = "작업 내용을 입력해주세요.") @Size(max = 255, message = "작업 내용은 255자 이하여야 합니다.") String description,
 
         @NotNull(message = "시작 시간을 입력해주세요.") LocalDateTime startTime,
