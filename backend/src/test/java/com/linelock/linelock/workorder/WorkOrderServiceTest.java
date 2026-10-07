@@ -3,9 +3,10 @@ package com.linelock.linelock.workorder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -15,11 +16,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.redisson.api.RedissonClient;
 
-import com.linelock.linelock.equipment.Equipment;
 import com.linelock.linelock.equipment.EquipmentRepository;
 import com.linelock.linelock.global.exception.CustomException;
 import com.linelock.linelock.global.exception.ErrorCode;
-import com.linelock.linelock.user.User;
 import com.linelock.linelock.user.UserRepository;
 
 
@@ -29,10 +28,10 @@ public class WorkOrderServiceTest {
     @Mock // 진짜 DB 대신 가짜 WorkOrderRepository 생성
     private WorkOrderRepository workOrderRepository;
 
-    @Mock // 진짜 DB 대신 가짜 EquipmentRepository 생성 (save()에서 getReferenceById 호출에 필요)
+    @Mock // reserve()에서만 쓰이지만, WorkOrderService 생성자가 요구하는 의존성이라 같이 가짜로 만들어줘야 함
     private EquipmentRepository equipmentRepository;
 
-    @Mock // 진짜 DB 대신 가짜 UserRepository 생성 (save()에서 getReferenceById 호출에 필요)
+    @Mock // 진짜 DB 대신 가짜 UserRepository 생성 (예약 입구 메서드가 loginId로 요청자를 조회할 때 필요)
     private UserRepository userRepository;
 
     @Mock // reserve()에서만 쓰이지만, WorkOrderService 생성자가 요구하는 의존성이라 같이 가짜로 만들어줘야 함
@@ -65,28 +64,15 @@ public class WorkOrderServiceTest {
     }
 
     @Test
-    void save_성공() {
-        // given: equipment/requester의 id가 채워진 WorkOrder 준비
-        // (save() 내부에서 workOrder.getEquipment().getId()를 호출하므로, equipment/requester가 null이면 NPE 발생)
-        Equipment equipment = new Equipment();
-        equipment.setId(1L);
+    void reserve_토큰의_사용자가_DB에_없으면_401() {
+        // given: 토큰은 유효하지만 그 loginId의 사용자가 DB에 없는 상황(예: 토큰 발급 뒤 계정이 삭제됨)을 가정(stubbing)
+        when(userRepository.findByLoginId(anyString())).thenReturn(Optional.empty());
+        ReserveRequest request = new ReserveRequest("점검 작업",
+                LocalDateTime.of(2026, 10, 10, 10, 0), LocalDateTime.of(2026, 10, 10, 12, 0));
 
-        User requester = new User();
-        requester.setId(1L);
-
-        WorkOrder workOrder = new WorkOrder();
-        workOrder.setEquipment(equipment);
-        workOrder.setRequester(requester);
-
-        // save() 내부에서 호출되는 3개 메서드 전부 stubbing
-        when(equipmentRepository.getReferenceById(anyLong())).thenReturn(equipment);
-        when(userRepository.getReferenceById(anyLong())).thenReturn(requester);
-        when(workOrderRepository.save(workOrder)).thenReturn(workOrder);
-
-        // when: 실제 테스트 대상 메서드 실행
-        workOrderService.save(workOrder);
-
-        // then: workOrderRepository.save()가 같은 workOrder와 함께 실제로 호출됐는지 검증
-        verify(workOrderRepository).save(workOrder);
+        // when & then: 요청자 조회가 락을 잡기 전에 일어나므로 Redisson을 stubbing할 필요가 없음
+        // "요청자의 신원을 인정할 수 없다"는 상황이라 404(USER_NOT_FOUND)가 아니라 401(UNAUTHORIZED)인지 검증
+        CustomException e = assertThrows(CustomException.class, () -> workOrderService.reserve(1L, request, "ghost"));
+        assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED);
     }
 }

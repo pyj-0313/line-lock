@@ -2,6 +2,8 @@ package com.linelock.linelock.workorder;
 
 import java.util.concurrent.TimeUnit;
 
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 
 import com.linelock.linelock.equipment.Equipment;
@@ -9,10 +11,8 @@ import com.linelock.linelock.equipment.EquipmentRepository;
 import com.linelock.linelock.equipment.EquipmentStatus;
 import com.linelock.linelock.global.exception.CustomException;
 import com.linelock.linelock.global.exception.ErrorCode;
+import com.linelock.linelock.user.User;
 import com.linelock.linelock.user.UserRepository;
-
-import org.redisson.api.RedissonClient;
-import org.redisson.api.RLock;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,22 +28,6 @@ public class WorkOrderService {
 
     public WorkOrder findById(Long id) { // WorkOrder 엔티티를 id로 조회하는 메서드
         return workOrderRepository.findById(id).orElseThrow(() -> new CustomException(ErrorCode.WORK_ORDER_NOT_FOUND)); // 없으면 CustomException(WORK_ORDER_NOT_FOUND) -> 핸들러가 404로 응답
-    }
-
-    public WorkOrder save(WorkOrder workOrder) { // WorkOrder 엔티티를 저장하는 메서드
-
-        workOrder.setEquipment(equipmentRepository.getReferenceById(workOrder.getEquipment().getId())); // WorkOrder에
-                                                                                                        // 설정된
-                                                                                                        // Equipment의
-                                                                                                        // id로 실제
-                                                                                                        // Equipment
-                                                                                                        // 엔티티를 조회하여 설정
-
-        workOrder.setRequester(userRepository.getReferenceById(workOrder.getRequester().getId())); // WorkOrder에 설정된
-                                                                                                   // User의 id로 실제 User
-                                                                                                   // 엔티티를 조회하여 설정
-
-        return workOrderRepository.save(workOrder); // JpaRepository의 save 메서드를 사용하여 WorkOrder 엔티티를 저장
     }
 
     // 설비를 예약하는 메서드. Redis 분산락(RLock)으로 동시 접근을 막음 -> 동시성 로드맵 4단계(마지막)
@@ -87,5 +71,27 @@ public class WorkOrderService {
                 }
             }
         }
+
+    // 컨트롤러가 호출하는 예약의 "입구". 요청 DTO를 엔티티로 조립한 뒤 아래 reserve(Long, WorkOrder)에 넘기는 역할만 함
+    // 락 로직은 기존 메서드 한 곳에만 두고 이 메서드는 건드리지 않음 -> concurrencydemo의 /redis 엔드포인트가
+    // 기존 시그니처를 그대로 쓰고 있어서, 시그니처를 바꾸는 대신 같은 이름의 메서드를 하나 더 둠(오버로딩: 파라미터가 달라서 구분됨)
+    // 요청자는 요청 본문이 아니라 로그인한 사용자(loginId)로 서버가 직접 조회 -> 다른 사람 이름으로 예약하는 위조를 차단
+    // 상태(CONFIRMED)는 여기서 정하지 않고 기존 reserve 안에서 서버가 정함
+    public WorkOrder reserve(Long equipmentId, ReserveRequest request, String loginId) {
+        // 토큰은 유효한데 그 사용자가 DB에 없는 경우(예: 토큰 발급 뒤 계정 삭제)는 404(USER_NOT_FOUND)가 아니라
+        // "요청자의 신원을 인정할 수 없다"는 뜻의 401(UNAUTHORIZED). 락을 잡기 전에 일어나는 검사라 Redis는 건드리지 않음
+        User requester = userRepository.findByLoginId(loginId)
+        .orElseThrow(() -> new CustomException(ErrorCode.UNAUTHORIZED));
+
+        // record의 값은 getDescription()이 아니라 description()처럼 필드 이름 그대로 꺼냄
+        WorkOrder workOrder = new WorkOrder();
+        workOrder.setDescription(request.description());
+        workOrder.setStartTime(request.startTime());
+        workOrder.setEndTime(request.endTime());
+        workOrder.setRequester(requester);
+
+        // 인자가 (Long, WorkOrder)라서 자기 자신이 아니라 기존 메서드(락 로직)가 호출됨
+        return reserve(equipmentId, workOrder);
+    }
      
 }

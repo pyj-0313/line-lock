@@ -15,8 +15,10 @@ public class EquipmentController {
     private final EquipmentService equipmentService;
 
     // GET /api/equipments/{id} : id로 설비 하나 조회
+    // 엔티티가 아니라 EquipmentResponse(DTO)로 응답 -> version 같은 내부 필드가 밖으로 나가지 않음
+    // 엔티티 -> DTO 변환은 서비스가 아니라 컨트롤러에서 함: "밖으로 내보낼 모양"은 API 입구의 몫이고, 서비스가 DTO를 알면 API 모양에 묶임
     @GetMapping("/{id}")
-    public Equipment getEquipmentById(@PathVariable Long id) {
-        return equipmentService.findById(id);
+    public EquipmentResponse getEquipmentById(@PathVariable Long id) {
+        return EquipmentResponse.from(equipmentService.findById(id));
     }
 }
