@@ -9,6 +9,7 @@ import com.linelock.linelock.auth.dto.LoginRequest;
 import com.linelock.linelock.auth.dto.LoginResponse;
 import com.linelock.linelock.auth.dto.SignupRequest;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController 
@@ -25,8 +26,10 @@ public class AuthController {
     }
 
     // 토큰을 반환하지 않으면 클라이언트가 이후 요청에 실을 인증 수단이 없어지므로 반드시 반환
+    // @Valid: LoginRequest에 선언한 규칙(@NotBlank 등)을 컨트롤러 진입 전에 실제로 검사하게 함. 위반하면
+    // MethodArgumentNotValidException이 터지고, GlobalExceptionHandler가 400 + 필드별 사유로 응답함
     @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest request) {
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
     }
 }
