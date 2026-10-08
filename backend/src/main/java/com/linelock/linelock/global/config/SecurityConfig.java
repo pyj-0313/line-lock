@@ -46,9 +46,18 @@ public class SecurityConfig {
         // 여기를 막아두면 인증된 요청 중간에 예외가 나도 이 재전달이 다시 보안 필터를 거치며 익명 취급되어 인증 실패로 막혀버리고,
         // 클라이언트는 원래 발생한 500 대신 엉뚱한 인증 실패 응답(당시에는 403, 지금은 401)을 받게 됨
         // (비관적 락 테스트 중 실제로 겪은 문제) -> 항상 통과되도록 예외 처리
+        // 규칙은 위에서부터 첫 번째로 맞는 것이 적용되므로 순서가 중요함 (더 구체적인 규칙을 먼저 둠)
         // 그 외 나머지 모든 요청은 인증(로그인 후 토큰 보유)을 요구함
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/error").permitAll()
+                // 내 정보(/me)는 로그인한 누구나. /me도 아래 /api/users/** 패턴에 포함되는 경로라서 반드시 그보다 먼저 둠
+                // (순서를 바꾸면 /me도 ADMIN 전용이 됨 - 규칙 순서를 뒤집어 보는 실험으로 확인함)
+                .requestMatchers("/api/users/me").authenticated()
+                // 그 외 /api/users/** (다른 사람의 정보)는 ADMIN만. 넓게 건 이유: 앞으로 이 아래에 경로가 추가돼도
+                // 기본이 ADMIN 전용이 되어, 규칙을 빠뜨려 열려 버리는 사고를 막음 (최소 권한 기본값)
+                // hasRole("ADMIN")은 내부적으로 "ROLE_ADMIN" 권한을 확인함 (JwtAuthenticationFilter가 토큰의 role로 만든 그 권한)
+                // 위반하면 컨트롤러에 닿기 전 보안 필터 단계에서 JwtAccessDeniedHandler가 403으로 응답함
+                .requestMatchers("/api/users/**").hasRole("ADMIN")
                 .anyRequest().authenticated());
 
         // 인증/인가 실패의 응답을 우리 에러 형식(ErrorResponse JSON)으로 통일함
