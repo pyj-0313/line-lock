@@ -24,6 +24,7 @@ import com.linelock.linelock.global.exception.ErrorCode;
 import com.linelock.linelock.global.security.JwtTokenProvider;
 import com.linelock.linelock.user.User;
 import com.linelock.linelock.user.UserRepository;
+import com.linelock.linelock.user.UserRole;
 
 @ExtendWith(MockitoExtension.class) // 이 테스트 클래스에서 Mockito(@Mock, @InjectMocks)를 쓸 수 있게 활성화
 public class AuthServiceTest {
@@ -72,14 +73,16 @@ public class AuthServiceTest {
     void login_성공() {
         // given: 로그인 시도 대상 User 준비 (loginId/password를 실제 값으로 채워야 함 -
         // 비워두면 login() 내부에서 이 값들을 anyString() stubbing에 넘길 때 null이 되어 매칭 실패함)
+        // role도 채워야 함: 토큰 발급이 (loginId, role) 두 인자를 받아서, role이 null이면 any(UserRole.class) 매처에 안 맞아 약속이 안 먹음
         User user = new User();
         user.setLoginId("test");
         user.setPassword("encodedPassword");
+        user.setRole(UserRole.USER);
 
         LoginRequest request = new LoginRequest("test", "1234");
         when(userRepository.findByLoginId(anyString())).thenReturn(Optional.of(user)); // "해당 아이디의 유저가 존재함"을 가정
         when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true); // "비밀번호 일치"를 가정
-        when(jwtTokenProvider.generateToken(anyString())).thenReturn("token123"); // 발급될 토큰 값을 가정
+        when(jwtTokenProvider.generateToken(anyString(), any(UserRole.class))).thenReturn("token123"); // 발급될 토큰 값을 가정
 
         // when: 실제 테스트 대상 메서드 실행, 결과를 변수에 받음
         LoginResponse response = authService.login(request);

@@ -20,21 +20,28 @@ public class WorkOrderController {
     private final WorkOrderService workOrderService;
 
     // GET /api/workorders/{id} : 특정 WorkOrder 조회
-    // 엔티티가 아니라 WorkOrderResponse(DTO)로 응답 -> 연결된 Equipment(version)/User(password)의 내부 필드가 밖으로 나가지 않음
+    // 엔티티가 아니라 WorkOrderResponse(DTO)로 응답 -> 연결된 Equipment(version)/User(password)의
+    // 내부 필드가 밖으로 나가지 않음
     // 엔티티 -> DTO 변환은 서비스가 아니라 컨트롤러에서 함 ("밖으로 내보낼 모양"은 API 입구의 몫)
+    // 요청자 본인이거나 ADMIN만 조회 가능 (남의 작업지시는 403). 조회자는 URL이나 본문이 아니라 토큰에서 꺼낸
+    // 로그인 아이디(Principal)이므로 위조할 수 없고, 권한 검사 자체는 서비스에서 함
     @GetMapping("/{id}")
-    public WorkOrderResponse getWorkOrderById(@PathVariable Long id) {
-        return WorkOrderResponse.from(workOrderService.findById(id));
+    public WorkOrderResponse getWorkOrderById(@PathVariable Long id, Principal principal) {
+        return WorkOrderResponse.from(workOrderService.findById(id, principal.getName()));
     }
 
     // POST /api/workorders/{equipmentId}/reserve : 특정 설비를 예약
-    // 값마다 "누가 정하는가"를 나눔: 설비는 URL 경로, 내용/시간은 요청 본문(ReserveRequest), 요청자는 로그인한 사용자(Principal)
+    // 값마다 "누가 정하는가"를 나눔: 설비는 URL 경로, 내용/시간은 요청 본문(ReserveRequest), 요청자는 로그인한
+    // 사용자(Principal)
     // 요청자를 본문이 아니라 토큰에서 꺼내므로 다른 사람 이름으로 예약하는 위조가 불가능하고, 상태(CONFIRMED)는 서버가 정함
     // Principal: 이 파라미터를 선언해두면 Spring MVC가 "지금 로그인한 사용자"를 넣어줌. getName()이 로그인 아이디
-    // (@AuthenticationPrincipal String 대신 Principal을 쓴 이유: 운영과 테스트(@WithMockUser)의 principal 타입이 달라도 getName()은 같게 동작)
-    // @Valid: ReserveRequest의 규칙(내용 필수, 시간 필수, 종료>시작)을 컨트롤러 진입 전에 검사. 위반하면 400 + 필드별 사유로 응답됨
+    // (@AuthenticationPrincipal String 대신 Principal을 쓴 이유: 운영과 테스트(@WithMockUser)의
+    // principal 타입이 달라도 getName()은 같게 동작)
+    // @Valid: ReserveRequest의 규칙(내용 필수, 시간 필수, 종료>시작)을 컨트롤러 진입 전에 검사. 위반하면 400 +
+    // 필드별 사유로 응답됨
     // (이게 없으면 규칙이 있어도 검사가 안 돼서 잘못된 값이 락 로직까지 들어감)
-    // 참고: 예전에 있던 POST /api/workorders(엔티티를 그대로 저장)는 status를 클라이언트가 정해 락을 우회할 수 있어서 삭제함 -> 예약은 이 경로 하나뿐
+    // 참고: 예전에 있던 POST /api/workorders(엔티티를 그대로 저장)는 status를 클라이언트가 정해 락을 우회할 수 있어서
+    // 삭제함 -> 예약은 이 경로 하나뿐
     @PostMapping("/{equipmentId}/reserve")
     public WorkOrderResponse reserve(@PathVariable Long equipmentId,
             @Valid @RequestBody ReserveRequest request,
