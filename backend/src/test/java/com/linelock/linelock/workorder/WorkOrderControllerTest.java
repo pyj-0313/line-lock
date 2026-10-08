@@ -39,7 +39,8 @@ import tools.jackson.databind.ObjectMapper;
 // 기본적으로는 로딩 안 되는 우리 진짜 SecurityConfig를 이 테스트에 끌어옴
 // (안 그러면 Spring Boot의 기본 보안(HTTP Basic, 401)이 대신 적용되어버림 -
 // EquipmentControllerTest에서 겪은 문제)
-// SecurityConfig가 요구하는 401/403 핸들러(@Component)도 웹 계층 테스트에는 자동으로 안 올라와서 함께 가져옴 (빠지면 NoSuchBeanDefinitionException)
+// SecurityConfig가 요구하는 401/403 핸들러(@Component)도 웹 계층 테스트에는 자동으로 안 올라와서 함께 가져옴
+// (빠지면 NoSuchBeanDefinitionException)
 @Import({ SecurityConfig.class, JwtAuthenticationEntryPoint.class, JwtAccessDeniedHandler.class })
 public class WorkOrderControllerTest {
 
@@ -53,9 +54,11 @@ public class WorkOrderControllerTest {
         private JwtTokenProvider jwtTokenProvider;
 
         @Test
-        @WithMockUser // "로그인된 사용자인 척" - 없으면 Security에 막혀 Controller 로직 자체를 테스트 못 함
+        @WithMockUser(username = "demotest") // "demotest로 로그인한 척" - 컨트롤러가 principal.getName()으로 꺼내 서비스에 넘기는 조회자
         void getWorkOrderById_성공() throws Exception {
-                // given: 조회될 WorkOrder 준비 + findById(...)가 호출되면 그 WorkOrder를 찾았다고 가정(stubbing)
+                // given: 조회될 WorkOrder 준비 + findById(id, 로그인 아이디)가 호출되면 그 WorkOrder를 돌려주도록 약속(stubbing)
+                // 컨트롤러는 이제 권한 검사를 하는 findById(id, loginId)를 부르므로, 옛 findById(id)로 약속하면 다른 메서드라
+                // 약속이 안 먹고 null이 돌아와 NPE -> 500이 됨
                 // equipment를 반드시 채워야 함: 응답 DTO 변환(WorkOrderResponse.from)이 equipment.getId()를
                 // 꺼내므로,
                 // 비워두면 NullPointerException -> 마지막 보루 핸들러가 500으로 응답해 테스트가 실패함 (실제 DB 데이터는 설비가
@@ -67,7 +70,7 @@ public class WorkOrderControllerTest {
                 workOrder.setId(1L);
                 workOrder.setEquipment(equipment);
                 workOrder.setDescription("테스트 작업");
-                when(workOrderService.findById(1L)).thenReturn(workOrder);
+                when(workOrderService.findById(1L, "demotest")).thenReturn(workOrder);
 
                 // when & then: GET 요청을 보내고, 상태코드와 응답 JSON의 필드값을 검증
                 // 응답은 엔티티가 아니라 WorkOrderResponse(DTO)라서, 설비는 객체 통째가 아니라 equipmentId(숫자)로 나옴
@@ -75,6 +78,26 @@ public class WorkOrderControllerTest {
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.description").value("테스트 작업"))
                                 .andExpect(jsonPath("$.equipmentId").value(10));
+
+                // then: 조회자가 URL이나 본문이 아니라 토큰의 사용자("demotest")로 서비스에 넘어갔는지 검증
+                // 이 verify가 없으면 컨트롤러가 엉뚱한 이름을 넘겨도 응답 200만 보고 통과함 (권한 검사의 기준이 되는 값이라 중요)
+                // eq(): "정확히 이 값". 인자 중 하나라도 매처를 쓰면 나머지도 전부 매처로 써야 해서 1L도 eq(1L)로 감쌈
+                verify(workOrderService).findById(eq(1L), eq("demotest"));
+        }
+
+        @Test
+        @WithMockUser(username = "other")
+        void getWorkOrderById_남의_것이면_403() throws Exception {
+                // given: 서비스가 "본인도 ADMIN도 아님"을 판단해 FORBIDDEN을 던지는 상황으로 약속
+                // (권한 판단 자체는 WorkOrderServiceTest가 검증하므로, 여기서는 던져진 예외가 응답으로 바뀌는 경로만 확인)
+                when(workOrderService.findById(1L, "other")).thenThrow(new CustomException(ErrorCode.FORBIDDEN));
+
+                // when & then: GlobalExceptionHandler를 거쳐 403 + FORBIDDEN으로 응답되는지 검증
+                // FORBIDDEN은 두 경로로 나옴: URL 규칙 위반은 보안 필터의 JwtAccessDeniedHandler, 소유권 위반(이 테스트)은
+                // 서비스가 던진 예외를 GlobalExceptionHandler가 처리. 응답 모양은 같지만 처리하는 곳이 다름
+                mockMvc.perform(get("/api/workorders/1"))
+                                .andExpect(status().isForbidden())
+                                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
         }
 
         @Test
@@ -110,8 +133,9 @@ public class WorkOrderControllerTest {
         @Test
         void getWorkOrderById_인증없으면_401() throws Exception {
                 // when & then: @WithMockUser 없이(=익명) 요청하면 보안 필터가 컨트롤러에 닿기 전에 막아 401이 뜨는지 검증
-                // 인증이 없으니 403(권한 부족)이 아니라 401(누군지 모름). 응답은 GlobalExceptionHandler가 아니라(컨트롤러 이후 예외만 받음)
-                // JwtAuthenticationEntryPoint가 만들고, 본문도 다른 에러와 같은 ErrorResponse 형식이어야 해서 code까지 확인
+                // 인증이 없으니 403(권한 부족)이 아니라 401(누군지 모름)
+                // 응답은 GlobalExceptionHandler(컨트롤러 이후 예외만 받음)가 아니라 JwtAuthenticationEntryPoint가 만들고,
+                // 본문도 다른 에러와 같은 ErrorResponse 형식이어야 해서 code까지 확인
                 mockMvc.perform(get("/api/workorders/1"))
                                 .andExpect(status().isUnauthorized())
                                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));

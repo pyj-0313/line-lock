@@ -32,7 +32,9 @@ public enum ErrorCode {
     // 토큰은 유효한데 해당 사용자가 DB에 없는 경우(서비스 단계). 후자도 404가 아니라 401: 본질이 "자원 없음"이 아니라 "신원 불인정"이라서
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증 정보가 유효하지 않습니다."),
     // 로그인은 했지만 이 자원/기능에 대한 권한이 없는 경우. "누군지 모르겠다"(401)와 달리 "누군지는 알지만 안 된다"는 뜻의 403
-    // 예: 일반 사용자가 ADMIN 전용 경로(/api/users/{id})에 접근하면 보안 필터 단계에서 JwtAccessDeniedHandler가 이 코드로 응답함
+    // 쓰이는 곳이 둘: (1) 역할 규칙 위반 - 일반 사용자가 ADMIN 전용 경로(/api/users/{id})에 접근하면 보안 필터 단계에서
+    // JwtAccessDeniedHandler가 응답, (2) 소유권 위반 - 남의 작업지시를 조회하면 WorkOrderService가 던지고 GlobalExceptionHandler가 응답
+    // 두 경우 모두 응답 모양은 같지만 처리하는 곳이 다름
     FORBIDDEN(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),
     // 예상 못한 오류의 응답용. 실제 원인(스택트레이스)은 응답이 아니라 서버 로그에만 남기고, 밖에는 이 메시지만 내보냄
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
