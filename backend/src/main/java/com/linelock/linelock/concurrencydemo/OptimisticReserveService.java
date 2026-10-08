@@ -1,5 +1,6 @@
 package com.linelock.linelock.concurrencydemo;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 @Service // 비즈니스 로직을 담당하는 서비스 컴포넌트로 Spring에 등록
 @RequiredArgsConstructor // final 필드(workOrderRepository)를 받는 생성자를 자동 생성 (Lombok) -> Spring이 이 생성자로 의존성
                          // 주입
+// demo 프로필에서만 빈으로 등록됨 (이유와 규칙은 package-info.java 참고)
+@Profile("demo")
 public class OptimisticReserveService {
 
     private final WorkOrderRepository workOrderRepository; // WorkOrderRepository를 주입받음
@@ -37,7 +40,8 @@ public class OptimisticReserveService {
                 if (equipment.getStatus() == EquipmentStatus.IDLE) {
                     equipment.setStatus(EquipmentStatus.RUNNING);
                     // saveAndFlush가 즉시 UPDATE를 내보내는 순간, Hibernate가 자동으로 WHERE version=?을 붙임.
-                    // 그 사이 다른 트랜잭션이 먼저 커밋해서 버전이 바뀌었다면 여기서 ObjectOptimisticLockingFailureException 발생
+                    // 그 사이 다른 트랜잭션이 먼저 커밋해서 버전이 바뀌었다면 여기서 ObjectOptimisticLockingFailureException
+                    // 발생
                     equipmentRepository.saveAndFlush(equipment);
 
                     workOrder.setEquipment(equipment);

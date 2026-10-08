@@ -2,7 +2,11 @@
 // 한 k6 프로세스가 가상유저를 서버들에 번갈아 배정해서, 서로 다른 서버로 가는 요청이 거의 같은 순간에 출발하게 함
 // (k6를 서버마다 따로 실행하면 시작 시점이 어긋나서 경쟁 상태가 재현되지 않을 수 있음)
 //
-// JWT 서명키가 서버 시작 시마다 랜덤 생성되므로 서버별로 로그인해서 받은 토큰을 PORTS와 같은 순서로 넘겨야 함
+// 실행 전: 모든 서버를 demo 프로필로 실행해야 함 (이 스크립트가 호출하는 /api/demo/** 는 demo 프로필에서만 등록됨)
+//   서버 실행 예: java -jar build/libs/linelock-0.0.1-SNAPSHOT.jar --server.port=8081 --spring.profiles.active=demo
+//
+// 토큰은 PORTS와 같은 순서로 넘기는 구조임. 서명키가 설정값(jwt.secret)이라 모든 서버가 같은 키를 쓰는 지금은
+// 한 서버에서 받은 토큰이 다른 서버에서도 통하지만(예전에는 키가 서버마다 랜덤이라 서버별 로그인이 필요했음), 스크립트 구조는 그대로 둠
 //
 // 실행 예시:
 //   PORTS="8081,8082" TOKENS="토큰1,토큰2" MODE=memory-lock EQUIPMENT_ID=1 VUS=20 k6 run backend/scripts/k6/reserve-multi-instance.js

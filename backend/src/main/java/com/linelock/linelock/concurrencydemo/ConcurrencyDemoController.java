@@ -1,5 +1,6 @@
 package com.linelock.linelock.concurrencydemo;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,9 +16,12 @@ import lombok.RequiredArgsConstructor;
 // 실제 서비스가 쓰는 프로덕션 엔드포인트는 /api/workorders/{id}/reserve(WorkOrderService, Redis 분산락) 이고,
 // 여기 5개 엔드포인트는 k6 부하테스트로 방식별 처리량/실패율/응답시간을 비교하려고 별도로 마련한 것임
 // (메모리락은 서버 1대에서는 정상이지만 서버가 여러 대면 서버마다 따로 통과시켜 깨진다는 걸 보여주는 용도)
+// demo 프로필에서만 등록됨: 기본 실행에서는 이 주소들이 존재하지 않음 (이유는 package-info.java 참고)
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/demo/reserve")
+// demo 프로필에서만 빈으로 등록됨 (이유와 규칙은 package-info.java 참고)
+@Profile("demo")
 public class ConcurrencyDemoController {
 
     private final NoLockReserveService noLockReserveService;

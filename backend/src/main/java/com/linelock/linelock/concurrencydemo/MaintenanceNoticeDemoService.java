@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+// demo 프로필에서만 빈으로 등록됨 (이유와 규칙은 package-info.java 참고)
+@Profile("demo")
 public class MaintenanceNoticeDemoService {
 
     private final RedissonClient redissonClient;

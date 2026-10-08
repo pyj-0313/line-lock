@@ -1,5 +1,6 @@
 package com.linelock.linelock.concurrencydemo;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -11,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/demo/batch")
+// demo 프로필에서만 빈으로 등록됨 (이유와 규칙은 package-info.java 참고)
+@Profile("demo")
 public class MaintenanceNoticeDemoController {
 
     private final MaintenanceNoticeDemoService maintenanceNoticeDemoService;

@@ -3,6 +3,7 @@ package com.linelock.linelock.concurrencydemo;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import com.linelock.linelock.equipment.Equipment;
@@ -17,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+// demo 프로필에서만 빈으로 등록됨 (이유와 규칙은 package-info.java 참고)
+@Profile("demo")
 public class MemoryLockReserveService {
 
     private final WorkOrderRepository workOrderRepository;
