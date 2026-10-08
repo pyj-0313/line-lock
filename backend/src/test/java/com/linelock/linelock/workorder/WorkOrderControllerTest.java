@@ -1,5 +1,6 @@
 package com.linelock.linelock.workorder;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -11,7 +12,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import java.time.LocalDateTime;
 
@@ -29,14 +29,18 @@ import com.linelock.linelock.equipment.Equipment;
 import com.linelock.linelock.global.config.SecurityConfig;
 import com.linelock.linelock.global.exception.CustomException;
 import com.linelock.linelock.global.exception.ErrorCode;
+import com.linelock.linelock.global.security.JwtAccessDeniedHandler;
+import com.linelock.linelock.global.security.JwtAuthenticationEntryPoint;
 import com.linelock.linelock.global.security.JwtTokenProvider;
 
 import tools.jackson.databind.ObjectMapper;
 
 @WebMvcTest(WorkOrderController.class) // Spring Boot 전체가 아니라 웹 계층(WorkOrderController + MVC 관련)만 가볍게 띄움
-@Import(SecurityConfig.class) // 기본적으로는 로딩 안 되는 우리 진짜 SecurityConfig를 이 테스트에 끌어옴
-                              // (안 그러면 Spring Boot의 기본 보안(HTTP Basic, 401)이 대신 적용되어버림 -
-                              // EquipmentControllerTest에서 겪은 문제)
+// 기본적으로는 로딩 안 되는 우리 진짜 SecurityConfig를 이 테스트에 끌어옴
+// (안 그러면 Spring Boot의 기본 보안(HTTP Basic, 401)이 대신 적용되어버림 -
+// EquipmentControllerTest에서 겪은 문제)
+// SecurityConfig가 요구하는 401/403 핸들러(@Component)도 웹 계층 테스트에는 자동으로 안 올라와서 함께 가져옴 (빠지면 NoSuchBeanDefinitionException)
+@Import({ SecurityConfig.class, JwtAuthenticationEntryPoint.class, JwtAccessDeniedHandler.class })
 public class WorkOrderControllerTest {
 
         @Autowired // 실제 HTTP 요청을 흉내 내는 도구를 Spring 컨테이너에서 주입받음
@@ -104,11 +108,13 @@ public class WorkOrderControllerTest {
         }
 
         @Test
-        void getWorkOrderById_인증없으면_거부() throws Exception {
-                // when & then: @WithMockUser 없이(=익명) 요청하면 보안 필터가 컨트롤러에 닿기 전에 막아 403이 뜨는지 검증
-                // (GlobalExceptionHandler는 컨트롤러 이후에 터진 예외만 받으므로 이 403에는 영향이 없음)
+        void getWorkOrderById_인증없으면_401() throws Exception {
+                // when & then: @WithMockUser 없이(=익명) 요청하면 보안 필터가 컨트롤러에 닿기 전에 막아 401이 뜨는지 검증
+                // 인증이 없으니 403(권한 부족)이 아니라 401(누군지 모름). 응답은 GlobalExceptionHandler가 아니라(컨트롤러 이후 예외만 받음)
+                // JwtAuthenticationEntryPoint가 만들고, 본문도 다른 에러와 같은 ErrorResponse 형식이어야 해서 code까지 확인
                 mockMvc.perform(get("/api/workorders/1"))
-                                .andExpect(status().isForbidden());
+                                .andExpect(status().isUnauthorized())
+                                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
         }
 
         @Test
@@ -191,11 +197,13 @@ public class WorkOrderControllerTest {
         void reserve_종료가_시작보다_앞이면_400() throws Exception {
                 // 이 테스트의 목적: 두 필드의 관계 규칙(@AssertTrue isEndAfterStart)이 실제로 검사되는지 확인
                 // (@WithMockUser: 검증은 컨트롤러 진입 직전 단계라, 로그인한 상태여야 보안 필터를 통과해 거기까지 도달함)
-                // given: 내용은 정상이고 시간만 거꾸로(시작 12시, 종료 10시). 서비스는 stubbing하지 않음 - 검증에서 걸려 서비스까지 가지 않기 때문
+                // given: 내용은 정상이고 시간만 거꾸로(시작 12시, 종료 10시). 서비스는 stubbing하지 않음 - 검증에서 걸려 서비스까지
+                // 가지 않기 때문
                 ReserveRequest request = new ReserveRequest("점검 작업", LocalDateTime.of(2026, 10, 10, 12, 0),
                                 LocalDateTime.of(2026, 10, 10, 10, 0));
 
-                // when & then: 400 + INVALID_REQUEST이고, 틀린 건 하나뿐이라 필드 이름이 메서드 이름에서 나온 endAfterStart로 담김
+                // when & then: 400 + INVALID_REQUEST이고, 틀린 건 하나뿐이라 필드 이름이 메서드 이름에서 나온
+                // endAfterStart로 담김
                 mockMvc.perform(post("/api/workorders/1/reserve")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(new ObjectMapper().writeValueAsString(request)))
@@ -232,7 +240,8 @@ public class WorkOrderControllerTest {
                 // 내용 빈 값 + 시작/종료 null: 각 필드 규칙(@NotBlank, @NotNull)이 자기 오류를 하나씩 내야 함
                 ReserveRequest request = new ReserveRequest("", null, null);
 
-                // when & then: 오류는 정확히 3개이고 endAfterStart는 없어야 함 - 시간이 null이면 isEndAfterStart()가 true를 돌려주고
+                // when & then: 오류는 정확히 3개이고 endAfterStart는 없어야 함 - 시간이 null이면
+                // isEndAfterStart()가 true를 돌려주고
                 // 그 경우는 @NotNull이 따로 잡기 때문 (같은 원인으로 오류가 두 번 나지 않는다는 설계를 이 테스트가 고정함)
                 // 오류 목록의 순서는 보장되지 않아서 containsInAnyOrder로 "순서 무관하게 이 값들"만 확인
                 // (메시지 문자열은 ReserveRequest의 message와 한 글자도 다르면 안 됨)

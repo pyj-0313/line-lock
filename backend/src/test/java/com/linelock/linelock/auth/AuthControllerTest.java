@@ -23,13 +23,17 @@ import com.linelock.linelock.auth.dto.SignupRequest;
 import com.linelock.linelock.global.config.SecurityConfig;
 import com.linelock.linelock.global.exception.CustomException;
 import com.linelock.linelock.global.exception.ErrorCode;
+import com.linelock.linelock.global.security.JwtAccessDeniedHandler;
+import com.linelock.linelock.global.security.JwtAuthenticationEntryPoint;
 import com.linelock.linelock.global.security.JwtTokenProvider;
 
 import tools.jackson.databind.ObjectMapper;
 
 @WebMvcTest(AuthController.class) // Spring Boot 전체가 아니라 웹 계층(AuthController + MVC 관련)만 가볍게 띄움
-@Import(SecurityConfig.class) // 기본적으로는 로딩 안 되는 우리 진짜 SecurityConfig를 이 테스트에 끌어옴
-                              // (안 그러면 Spring Boot의 기본 보안이 대신 적용되어 실제 앱과 다르게 동작함)
+// 기본적으로는 로딩 안 되는 우리 진짜 SecurityConfig를 이 테스트에 끌어옴
+// (안 그러면 Spring Boot의 기본 보안이 대신 적용되어 실제 앱과 다르게 동작함)
+// SecurityConfig가 요구하는 401/403 핸들러(@Component)도 웹 계층 테스트에는 자동으로 안 올라와서 함께 가져옴 (빠지면 NoSuchBeanDefinitionException)
+@Import({ SecurityConfig.class, JwtAuthenticationEntryPoint.class, JwtAccessDeniedHandler.class })
 public class AuthControllerTest {
 
         @Autowired // 실제 HTTP 요청을 흉내 내는 도구를 Spring 컨테이너에서 주입받음
@@ -134,7 +138,8 @@ public class AuthControllerTest {
                 // 컨트롤러에 들어오기 전 검증 단계에서 이미 걸러져 서비스까지 가지 않기 때문
                 LoginRequest loginRequest = new LoginRequest("", "");
 
-                // when & then: 검증에서 걸려 400 + INVALID_REQUEST이고, 틀린 두 필드와 한국어 사유가 fieldErrors에 담기는지 검증
+                // when & then: 검증에서 걸려 400 + INVALID_REQUEST이고, 틀린 두 필드와 한국어 사유가 fieldErrors에
+                // 담기는지 검증
                 // containsInAnyOrder: 검증 오류 목록의 순서는 보장되지 않아서 [0], [1]로 위치를 고정하지 않고
                 // "순서와 상관없이 이 값들이 들어 있는지"로 확인함. $.fieldErrors[*]의 [*]는 배열의 모든 항목이라는 뜻
                 mockMvc.perform(post("/api/auth/login")

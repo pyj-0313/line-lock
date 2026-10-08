@@ -28,8 +28,11 @@ public enum ErrorCode {
     // 클라이언트가 잘못 보낸 요청 전반: 깨진 JSON, 타입 불일치(/equipments/abc), 입력값 검증 실패(@Valid)
     // 검증 실패일 때는 응답에 fieldErrors(필드별 사유)가 함께 내려가고, 그 외에는 이 공통 메시지만 나감
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다."),
-    // 토큰은 유효한데 해당 사용자가 DB에 없는 경우처럼 "요청자의 신원을 인정할 수 없다"는 상황, 404가 아니라 401
+    // "요청자의 신원을 인정할 수 없다"는 상황 전반에 쓰는 401: 토큰이 없거나 위조/만료된 경우(보안 필터 단계, JwtAuthenticationEntryPoint가 응답),
+    // 토큰은 유효한데 해당 사용자가 DB에 없는 경우(서비스 단계). 후자도 404가 아니라 401: 본질이 "자원 없음"이 아니라 "신원 불인정"이라서
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증 정보가 유효하지 않습니다."),
+    // 로그인은 했지만 이 자원/기능에 대한 권한이 없는 경우. "누군지 모르겠다"(401)와 달리 "누군지는 알지만 안 된다"는 뜻의 403
+    FORBIDDEN(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),
     // 예상 못한 오류의 응답용. 실제 원인(스택트레이스)은 응답이 아니라 서버 로그에만 남기고, 밖에는 이 메시지만 내보냄
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
 

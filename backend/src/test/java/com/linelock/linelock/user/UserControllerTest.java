@@ -15,10 +15,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.linelock.linelock.global.config.SecurityConfig;
+import com.linelock.linelock.global.security.JwtAccessDeniedHandler;
+import com.linelock.linelock.global.security.JwtAuthenticationEntryPoint;
 import com.linelock.linelock.global.security.JwtTokenProvider;
 
 @WebMvcTest(UserController.class) // Spring Boot 전체가 아니라 웹 계층(UserController + MVC 관련)만 가볍게 띄움
-@Import(SecurityConfig.class) // 기본적으로는 로딩 안 되는 우리 진짜 SecurityConfig를 이 테스트에 끌어옴
+// 기본적으로는 로딩 안 되는 우리 진짜 SecurityConfig를 이 테스트에 끌어옴
+// SecurityConfig가 요구하는 401/403 핸들러(@Component)도 웹 계층 테스트에는 자동으로 안 올라와서 함께 가져옴 (빠지면 NoSuchBeanDefinitionException)
+@Import({ SecurityConfig.class, JwtAuthenticationEntryPoint.class, JwtAccessDeniedHandler.class })
 public class UserControllerTest {
 
     @Autowired // 실제 HTTP 요청을 흉내 내는 도구를 Spring 컨테이너에서 주입받음
@@ -47,10 +51,10 @@ public class UserControllerTest {
         // when & then: 200 응답이고, 허용한 필드(loginId, name)는 있고, password는 응답에 "아예 없는지" 검증
         // doesNotExist(): 필드가 null로 오는 것과 달리, 필드 자체가 응답에 없을 때만 통과
         mockMvc.perform(get("/api/users/1"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.loginId").value("demotest"))
-        .andExpect(jsonPath("$.name").value("데모테스트"))
-        .andExpect(jsonPath("$.password").doesNotExist());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loginId").value("demotest"))
+                .andExpect(jsonPath("$.name").value("데모테스트"))
+                .andExpect(jsonPath("$.password").doesNotExist());
     }
-    
+
 }
