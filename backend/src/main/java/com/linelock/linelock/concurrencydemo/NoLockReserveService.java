@@ -1,5 +1,6 @@
 package com.linelock.linelock.concurrencydemo;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import com.linelock.linelock.equipment.Equipment;
@@ -16,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 // 이 클래스는 과거 "락 없음" 단계의 구현을 git 히스토리에서 복원해 부하테스트 비교 대상으로만 남겨둔 것임
 @Service // 비즈니스 로직을 담당하는 서비스 컴포넌트로 Spring에 등록
 @RequiredArgsConstructor // final 필드(workOrderRepository)를 받는 생성자를 자동 생성 (Lombok) -> Spring이 이 생성자로 의존성 주입
+// demo 프로필에서만 빈으로 등록됨 (이유와 규칙은 package-info.java 참고)
+@Profile("demo")
 public class NoLockReserveService {
 
     private final WorkOrderRepository workOrderRepository; // WorkOrderRepository를 주입받음

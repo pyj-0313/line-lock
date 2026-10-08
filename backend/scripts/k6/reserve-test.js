@@ -1,5 +1,7 @@
 // 동시성 로드맵 4단계(락없음/비관적/낙관적/Redis) 비교용 k6 부하테스트 스크립트.
-// 실행 전: 서버 실행 + 설비를 IDLE로 리셋 + 아래 환경변수를 채워서 실행할 것
+// 실행 전: 서버를 demo 프로필로 실행 + 설비를 IDLE로 리셋 + 아래 환경변수를 채워서 실행할 것
+//   서버 실행: java -jar build/libs/linelock-0.0.1-SNAPSHOT.jar --spring.profiles.active=demo
+//   (이 스크립트가 호출하는 /api/demo/** 는 demo 프로필에서만 등록됨. 기본 실행에서는 404)
 //
 // 실행 예시 (설비 1번, 방식은 no-lock, 동시 유저 10명):
 //   TOKEN="로그인해서 받은 토큰" MODE=no-lock EQUIPMENT_ID=1 VUS=10 k6 run backend/scripts/k6/reserve-test.js
