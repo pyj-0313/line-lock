@@ -1,13 +1,20 @@
 package com.linelock.linelock.global.config;
 
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.linelock.linelock.global.security.JwtAccessDeniedHandler;
 import com.linelock.linelock.global.security.JwtAuthenticationEntryPoint;
@@ -30,12 +37,35 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder(); // 비밀번호를 안전하게 저장하기 위해 BCrypt 해시 함수를 사용
     }
 
+    // CORS: 브라우저는 화면을 받아온 출처(주소+포트)와 API 출처가 다르면 요청을 막고, 서버가 허용한 출처만 통과시킴
+    // 허용 출처는 환경마다 다르므로 코드에 박지 않고 cors.allowed-origins 설정에서 읽음 (쉼표로 여러 개 가능)
+    // @Value를 필드가 아니라 파라미터에 둔 이유: 이 클래스는 @RequiredArgsConstructor로 생성자 주입을 하므로 필드의 @Value는 주입되지 않을 수 있음
+    // Authorization 헤더가 붙는 요청은 브라우저가 본 요청 전에 OPTIONS 사전 요청(preflight)을 먼저 보내 허용 여부를 물음
+    // 쿠키가 아니라 Authorization 헤더로 토큰을 보내므로 allowCredentials는 설정하지 않음
+    // 허용 목록에 없는 출처는 403으로 거부되고 Access-Control-Allow-Origin 헤더가 붙지 않음
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${cors.allowed-origins}") List<String> allowedOrigins) {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(allowedOrigins);
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+
+        // API 경로(/api/**)에만 이 규칙을 적용함
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", config);
+        return source;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         // CSRF는 브라우저가 쿠키를 자동으로 보내는 세션 방식 로그인에서만 문제가 됨.
         // 우리는 매 요청마다 Authorization 헤더에 토큰을 직접 실어 보내는 JWT 방식이라 해당 공격이 성립하지 않음
         // -> 꺼도 안전함
         http.csrf(csrf -> csrf.disable());
+        // 위의 corsConfigurationSource 빈을 사용해 CORS를 처리함. 토큰 없는 OPTIONS 사전 요청이 JWT 인증에 막혀 401이 되지 않고 통과해야 하기 때문
+        // (이 버전은 빈만 있어도 자동 적용됨을 실험으로 확인했지만, 보안 설정에서 CORS가 켜져 있음이 드러나도록 명시함)
+        http.cors(Customizer.withDefaults());
 
         // JWT는 "서버가 아무것도 기억하지 않고, 매 요청의 토큰만 보고 판단"하는 stateless 방식이 핵심.
         // 기본값(세션 기반)을 끄고 STATELESS로 명시해서 서버가 세션을 만들거나 사용하지 않게 함
