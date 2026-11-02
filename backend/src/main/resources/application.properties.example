@@ -12,3 +12,7 @@ spring.jpa.show-sql=true
 # 32자 이상의 랜덤 문자열을 쓸 것. 생성 예: openssl rand -base64 48
 # 실제 값은 커밋되지 않는 application.properties에만 넣고, 이 예제 파일에는 절대 실제 값을 적지 말 것
 jwt.secret=change-me-to-a-random-string-of-32-chars-or-more
+
+# CORS 허용 출처(프론트엔드 주소). 브라우저는 화면의 출처와 API의 출처가 다르면 요청을 막고, 여기 적힌 출처만 통과시킴
+# 여러 개면 쉼표로 구분 (예: http://localhost:5500,http://localhost:3000). 환경마다 다르므로 코드에 박지 않고 설정으로 뺌
+cors.allowed-origins=http://localhost:5500
