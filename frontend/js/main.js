@@ -84,6 +84,8 @@ loginForm.addEventListener('submit', async (event) => {
     showMessage('');
     clearFieldErrors();
     const body = Object.fromEntries(new FormData(loginForm));
+    const submitButton = loginForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true; // 응답이 오기 전에 중복 제출되는 것을 막음
 
     try {
         const data = await request('/api/auth/login', { method: 'POST', body });
@@ -93,6 +95,8 @@ loginForm.addEventListener('submit', async (event) => {
         await showLoggedIn();
     } catch (error) {
         showError(error, loginForm);
+    } finally {
+        submitButton.disabled = false; // 성공하든 실패하든 다시 누를 수 있게 함
     }
 });
 
@@ -101,6 +105,8 @@ signupForm.addEventListener('submit', async (event) => {
     showMessage('');
     clearFieldErrors();
     const body = Object.fromEntries(new FormData(signupForm));
+    const submitButton = signupForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
 
     try {
         await request('/api/auth/signup', { method: 'POST', body });
@@ -109,6 +115,8 @@ signupForm.addEventListener('submit', async (event) => {
         showMessage('회원가입이 완료됐습니다. 로그인해주세요.');
     } catch (error) {
         showError(error, signupForm);
+    } finally {
+        submitButton.disabled = false;
     }
 });
 
