@@ -1,0 +1,91 @@
+/* 1. 디자인 값(변수): 색이나 간격을 바꿀 때 여기만 고침 */
+:root {
+    --color-primary: #2563EB;
+    --color-primary-hover: #1D4ED8;
+    --color-navy: #1E293B;
+    --color-bg: #F5F7FB;
+    --color-surface: #FFFFFF;
+    --color-border: #DCE4F0;
+    --color-text: #172033;
+    --color-muted: #64748B;
+    --color-disabled-bg: #E2E8F0;
+    --color-disabled-text: #94A3B8;
+    --color-danger: #B91C1C;
+
+    /* 설비 상태 색 (현장 관행: 가동 녹색, 대기 노랑, 점검 파랑, 고장 빨강) */
+    --status-running: #22C55E;
+    --status-running-text: #15803D;
+    --status-idle: #EAB308;
+    --status-idle-text: #A16207;
+    --status-maintenance: #3B82F6;
+    --status-maintenance-text: #1D4ED8;
+    --status-fault: #EF4444;
+    --status-fault-text: #B91C1C;
+
+    --space-1: 8px;
+    --space-2: 16px;
+    --space-3: 24px;
+    --space-4: 32px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --control-height: 40px;
+}
+
+/* 2. 기본 설정 */
+* {
+    box-sizing: border-box;
+}
+
+/* display를 지정한 요소도 hidden이면 반드시 숨김 */
+[hidden] {
+    display: none !important;
+}
+
+body {
+    margin: 0;
+    font-family: 'Pretendard', sans-serif;
+    font-size: 14px;
+    color: var(--color-text);
+    background: var(--color-bg);
+}
+
+/* 3. 입력칸 */
+input {
+    width: 100%;
+    height: var(--control-height);
+    padding: 0 12px;
+    font: inherit;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+}
+
+/* 4. 버튼 */
+button {
+    height: var(--control-height);
+    padding: 0 var(--space-2);
+    font: inherit;
+    font-weight: 600;
+    color: var(--color-surface);
+    background: var(--color-primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+button:hover {
+    background: var(--color-primary-hover);
+}
+
+button:disabled {
+    color: var(--color-disabled-text);
+    background: var(--color-disabled-bg);
+    cursor: not-allowed;
+}
+
+/* 키보드로 이동할 때 지금 선택된 곳이 보이게 함 */
+input:focus-visible,
+button:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
