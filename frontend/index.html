@@ -20,6 +20,11 @@
 
         <!-- 오른쪽: 로그인/회원가입 -->
         <div class="auth-panel">
+            <!-- 로그인/회원가입 탭 -->
+            <div class="auth-tabs" id="auth-tabs">
+                <button type="button" id="login-tab" class="auth-tab active" aria-pressed="true">로그인</button>
+                <button type="button" id="signup-tab" class="auth-tab" aria-pressed="false">회원가입</button>
+            </div>
             <!-- 안내/에러 문구가 표시될 자리 -->
             <p id="message"></p>
 
@@ -37,7 +42,7 @@
             </form>
 
             <!-- 회원가입 -->
-            <form id="signup-form">
+            <form id="signup-form" hidden>
                 <h2>회원가입</h2>
 
                 <label for="signup-id">아이디</label>

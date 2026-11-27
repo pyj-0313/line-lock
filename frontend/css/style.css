@@ -134,6 +134,32 @@ button:disabled {
     margin-top: var(--space-2);
 }
 
+/* 6. 로그인/회원가입 탭 */
+.auth-tabs {
+    display: flex;
+    width: 100%;
+    max-width: 360px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.auth-panel .auth-tab {
+    flex: 1;
+    margin-top: 0;
+    color: var(--color-muted);
+    background: transparent;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+}
+
+.auth-panel .auth-tab:hover,
+.auth-panel .auth-tab.active {
+    color: var(--color-primary);
+}
+
+.auth-panel .auth-tab.active {
+    border-bottom-color: var(--color-primary);
+}
+
 /* 키보드로 이동할 때 지금 선택된 곳이 보이게 함 */
 input:focus-visible,
 button:focus-visible {

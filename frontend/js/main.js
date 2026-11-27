@@ -8,6 +8,9 @@ const userSection = document.querySelector('#user-section');
 const userName = document.querySelector('#user-name');
 const logoutButton = document.querySelector('#logout-button');
 const message = document.querySelector('#message');
+const authTabs = document.querySelector('#auth-tabs');
+const loginTab = document.querySelector('#login-tab');
+const signupTab = document.querySelector('#signup-tab');
 
 // 2. 화면을 바꾸는 함수들
 // textContent는 글자를 그대로 넣어서, 서버 값에 HTML이 섞여도 실행되지 않음 (XSS 방지)
@@ -25,9 +28,20 @@ function showError(error) {
     showMessage(details || error.message);
 }
 
+// 선택한 탭의 폼만 보여줌
+function showTab(isSignup) {
+    loginForm.hidden = isSignup;
+    signupForm.hidden = !isSignup;
+    loginTab.classList.toggle('active', !isSignup);
+    signupTab.classList.toggle('active', isSignup);
+    loginTab.setAttribute('aria-pressed', String(!isSignup));
+    signupTab.setAttribute('aria-pressed', String(isSignup));
+    showMessage('');
+}
+
 function showLoggedOut() {
-    loginForm.hidden = false;
-    signupForm.hidden = false;
+    authTabs.hidden = false;
+    showTab(false);
     userSection.hidden = true;
     userName.textContent = '';
 }
@@ -35,6 +49,7 @@ function showLoggedOut() {
 async function showLoggedIn() {
     const me = await request('/api/users/me');
     userName.textContent = me.name;
+    authTabs.hidden = true;
     loginForm.hidden = true;
     signupForm.hidden = true;
     userSection.hidden = false;
@@ -63,6 +78,7 @@ signupForm.addEventListener('submit', async (event) => {
     try {
         await request('/api/auth/signup', { method: 'POST', body });
         signupForm.reset();
+        showTab(false);
         showMessage('회원가입이 완료됐습니다. 로그인해주세요.');
     } catch (error) {
         showError(error);
@@ -74,6 +90,9 @@ logoutButton.addEventListener('click', () => {
     showLoggedOut();
     showMessage('로그아웃했습니다.');
 });
+
+loginTab.addEventListener('click', () => showTab(false));
+signupTab.addEventListener('click', () => showTab(true));
 
 window.addEventListener('auth:expired', () => {
     showLoggedOut();
