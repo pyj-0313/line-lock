@@ -160,6 +160,20 @@ button:disabled {
     border-bottom-color: var(--color-primary);
 }
 
+/* 7. 입력칸별 오류 */
+.field-error {
+    font-size: 12px;
+    color: var(--color-danger);
+}
+
+.field-error:empty {
+    display: none;
+}
+
+input[aria-invalid="true"] {
+    border-color: var(--status-fault);
+}
+
 /* 키보드로 이동할 때 지금 선택된 곳이 보이게 함 */
 input:focus-visible,
 button:focus-visible {

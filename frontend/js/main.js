@@ -18,14 +18,36 @@ function showMessage(text) {
     message.textContent = text;
 }
 
-function showError(error) {
+function clearFieldErrors() {
+    document.querySelectorAll('.field-error').forEach((slot) => (slot.textContent = ''));
+    document.querySelectorAll('[aria-invalid]').forEach((input) => input.removeAttribute('aria-invalid'));
+}
+
+// 서버가 알려준 필드 이름에 해당하는 칸 아래에 사유를 보여줌
+function showFieldErrors(form, fieldErrors) {
+    fieldErrors.forEach((fieldError) => {
+        const slot = form.querySelector(`[data-error-for="${fieldError.field}"]`);
+        // 화면에 해당 칸이 없는 오류는 놓치지 않도록 위쪽 안내 자리에 보여줌
+        if (!slot) {
+            showMessage(fieldError.message);
+            return;
+        }
+        // 한 칸에 사유가 여러 개일 수 있어서 이어 붙임
+        slot.textContent = `${slot.textContent} ${fieldError.message}`.trim();
+        form.elements.namedItem(fieldError.field).setAttribute('aria-invalid', 'true');
+    });
+}
+
+function showError(error, form) {
     // 만료 안내는 아래 auth:expired에서 보여주므로 덮어쓰지 않음
     if (error.code === 'UNAUTHORIZED') {
         return;
     }
-    // 입력값 검증 실패면 필드별 사유를, 아니면 공통 메시지를 보여줌
-    const details = error.fieldErrors?.map((fieldError) => fieldError.message).join(' ');
-    showMessage(details || error.message);
+    if (form && error.fieldErrors) {
+        showFieldErrors(form, error.fieldErrors);
+        return;
+    }
+    showMessage(error.message);
 }
 
 // 선택한 탭의 폼만 보여줌
@@ -37,6 +59,7 @@ function showTab(isSignup) {
     loginTab.setAttribute('aria-pressed', String(!isSignup));
     signupTab.setAttribute('aria-pressed', String(isSignup));
     showMessage('');
+    clearFieldErrors();
 }
 
 function showLoggedOut() {
@@ -58,6 +81,8 @@ async function showLoggedIn() {
 // 3. 사용자의 행동에 반응하기
 loginForm.addEventListener('submit', async (event) => {
     event.preventDefault(); // 폼의 기본 동작(주소에 값을 붙이며 새로고침)을 막음
+    showMessage('');
+    clearFieldErrors();
     const body = Object.fromEntries(new FormData(loginForm));
 
     try {
@@ -67,12 +92,14 @@ loginForm.addEventListener('submit', async (event) => {
         showMessage('');
         await showLoggedIn();
     } catch (error) {
-        showError(error);
+        showError(error, loginForm);
     }
 });
 
 signupForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+    showMessage('');
+    clearFieldErrors();
     const body = Object.fromEntries(new FormData(signupForm));
 
     try {
@@ -81,7 +108,7 @@ signupForm.addEventListener('submit', async (event) => {
         showTab(false);
         showMessage('회원가입이 완료됐습니다. 로그인해주세요.');
     } catch (error) {
-        showError(error);
+        showError(error, signupForm);
     }
 });
 
